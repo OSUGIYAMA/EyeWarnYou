@@ -1,6 +1,8 @@
 // Printable transaction review record (取引審査票) with item classifications (該非判定) and screening evidence.
+// A formal document: always black on white, whatever the app's appearance.
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { Finding } from "@/shared/assessment.ts";
 import { api, type CaseView, type CountryInfo, type Meta } from "../lib/api.ts";
@@ -8,86 +10,157 @@ import { fmtDate, LIST_NAMES, OUTCOME } from "../lib/format.ts";
 
 const ROLE: Record<string, string> = { end_user: "End user (需要者)", consignee: "Ultimate consignee", intermediate_consignee: "Intermediate consignee", purchaser: "Purchaser (契約先)", forwarder: "Forwarder", other: "Other" };
 
+const STYLES = `
+@page { size: A4; margin: 16mm 15mm; }
+.rpt { color: #1d1d1f; font-size: 12.5px; line-height: 1.55; font-feature-settings: "tnum" 1; }
+.rpt h2 { display: flex; align-items: baseline; gap: 10px; font-size: 14px; font-weight: 600; letter-spacing: -0.01em; margin: 30px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #1d1d1f; break-after: avoid; }
+.rpt h2 .n { width: 16px; color: #86868b; font-weight: 500; }
+.rpt h2 .ja { color: #6e6e73; font-weight: 400; font-size: 12px; }
+.rpt table { width: 100%; border-collapse: collapse; }
+.rpt th, .rpt td { padding: 7px 10px 7px 0; text-align: left; vertical-align: top; border-bottom: 1px solid #e5e5ea; }
+.rpt th:last-child, .rpt td:last-child { padding-right: 0; }
+.rpt thead th { font-size: 11px; font-weight: 500; color: #6e6e73; border-bottom: 1px solid #d2d2d7; padding-top: 0; }
+.rpt tbody th { font-weight: 400; color: #6e6e73; }
+.rpt .sub { font-size: 11px; color: #6e6e73; }
+.rpt .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
+.rpt tr, .rpt .keep { break-inside: avoid; }
+`;
+
+function Heading({ n, children, ja }: { n?: number; children: ReactNode; ja?: string }) {
+  return (
+    <h2>
+      {n !== undefined && <span className="n">{n}</span>}
+      <span>{children}</span>
+      {ja && <span className="ja">{ja}</span>}
+    </h2>
+  );
+}
+
 export function ReportPage() {
   const { id = "" } = useParams();
   const q = useQuery({ queryKey: ["case", id], queryFn: () => api.get<CaseView>(`/cases/${id}`) });
   const meta = useQuery({ queryKey: ["meta"], queryFn: () => api.get<Meta>("/meta") });
   const countries = useQuery({ queryKey: ["countries"], queryFn: () => api.get<CountryInfo[]>("/countries") });
-  if (!q.data) return <div className="p-10 text-fg-3">Loading…</div>;
+  if (!q.data)
+    return (
+      <div className="min-h-screen bg-white p-10 text-[14px] text-[#86868b]" style={{ colorScheme: "light" }}>
+        Loading…
+      </div>
+    );
   const { case: c, assessment: a, questions } = q.data;
   const cn = (iso: string) => (iso ? `${countries.data?.find((x) => x.iso2 === iso)?.en ?? iso} (${iso})` : "—");
   const jp = a.jurisdictions.find((j) => j.jurisdiction === "JP");
   const us = a.jurisdictions.find((j) => j.jurisdiction === "US");
   const company = meta.data?.settings.company;
   const lastDecision = [...c.review].reverse().find((r) => ["approved", "rejected"].includes(r.action));
+  const redFlags = questions.filter((x) => x.group === "red_flag");
 
   return (
-    <div className="min-h-screen bg-panel-2 print:bg-white">
-      <div className="no-print sticky top-0 z-10 flex items-center gap-3 border-b border-line bg-panel px-6 py-3">
-        <Link to={`/cases/${c.id}`} className="inline-flex items-center gap-1.5 text-[13px] text-fg-2 hover:text-fg">
-          <ArrowLeft className="size-4" /> Back to case
-        </Link>
-        <button onClick={() => window.print()} className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-lg bg-accent px-3 text-[13px] font-medium text-accent-fg">
-          <Printer className="size-3.5" /> Print / Save as PDF
-        </button>
+    <div className="min-h-screen bg-white text-[#1d1d1f]" style={{ colorScheme: "light" }}>
+      <div className="no-print sticky top-0 z-10 border-b border-[#e5e5ea] bg-white/85 backdrop-blur-xl">
+        <div className="mx-auto flex h-12 max-w-[860px] items-center gap-3 px-4">
+          <Link to={`/cases/${c.id}`} className="-ml-1 inline-flex items-center gap-0.5 text-[14px] text-[#0066cc] hover:underline">
+            <ChevronLeft className="size-4" strokeWidth={2} /> {c.ref}
+          </Link>
+          <span className="flex-1 truncate text-center text-[13px] font-medium text-[#6e6e73]">Transaction Review Record</span>
+          <button onClick={() => window.print()} className="inline-flex h-[30px] items-center rounded-full bg-[#0071e3] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#0077ed]">
+            Print or save as PDF
+          </button>
+        </div>
       </div>
-      <article className="mx-auto my-8 max-w-[860px] bg-white px-12 py-10 text-[12.5px] leading-relaxed text-[#111] shadow-float print:my-0 print:max-w-none print:px-0 print:py-0 print:shadow-none" style={{ colorScheme: "light" }}>
-        <style>{`@page { size: A4; margin: 16mm 14mm; } .rpt h2 { font-size: 13px; font-weight: 600; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 1.5px solid #111; letter-spacing: .01em } .rpt table { width: 100%; border-collapse: collapse } .rpt th, .rpt td { border: 1px solid #d4d4d8; padding: 5px 7px; text-align: left; vertical-align: top } .rpt th { background: #f4f4f5; font-weight: 600; font-size: 11.5px } .rpt tr, .rpt .keep { break-inside: avoid }`}</style>
+
+      <article className="mx-auto max-w-[860px] px-6 pb-24 pt-14 sm:px-4 print:max-w-none print:px-0 print:pb-0 print:pt-0">
+        <style>{STYLES}</style>
         <div className="rpt">
-          <header className="flex items-start justify-between gap-6 border-b-2 border-[#111] pb-4">
+          <header className="flex items-start justify-between gap-8 pb-6">
             <div>
-              <div className="text-[11px] uppercase tracking-[0.08em] text-[#555]">{company || "Export control"}</div>
-              <h1 className="mt-1 text-[20px] font-semibold tracking-tight">Transaction Review Record</h1>
-              <div className="text-[12px] text-[#555]">取引審査票 · export control determination</div>
+              {company && <div className="text-[12px] font-medium text-[#6e6e73]">{company}</div>}
+              <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-[-0.02em]">Transaction Review Record</h1>
+              <div className="mt-1 text-[13px] text-[#6e6e73]">取引審査票 · Export control determination</div>
             </div>
-            <table style={{ width: 260 }}>
-              <tbody>
-                <tr><th>Reference</th><td className="font-mono">{c.ref}</td></tr>
-                <tr><th>Status</th><td className="capitalize">{c.status.replace("_", " ")}</td></tr>
-                <tr><th>Printed</th><td>{fmtDate(new Date().toISOString())}</td></tr>
-              </tbody>
-            </table>
+            <dl className="grid shrink-0 grid-cols-[auto_auto] gap-x-5 gap-y-1 pt-1 text-[12px]">
+              <dt className="text-[#6e6e73]">Reference</dt>
+              <dd className="mono text-right">{c.ref}</dd>
+              <dt className="text-[#6e6e73]">Status</dt>
+              <dd className="text-right capitalize">{c.status.replace("_", " ")}</dd>
+              <dt className="text-[#6e6e73]">Printed</dt>
+              <dd className="text-right">{fmtDate(new Date().toISOString())}</dd>
+            </dl>
           </header>
 
-          <h2>1. Transaction (件名・仕向地・用途)</h2>
+          <div className="keep border-y-[1.5px] border-[#1d1d1f] py-4">
+            <div className="text-[11px] font-medium text-[#6e6e73]">Determination</div>
+            <div className="mt-0.5 text-[20px] font-semibold tracking-[-0.015em]">{OUTCOME[a.overall].label}</div>
+            <div className="mt-0.5 text-[13px]">{a.headline}</div>
+          </div>
+
+          <Heading n={1} ja="件名・仕向地・用途">
+            Transaction
+          </Heading>
           <table>
             <tbody>
-              <tr><th style={{ width: 170 }}>Title</th><td colSpan={3}>{c.title}</td></tr>
-              <tr><th>Ships from</th><td>{cn(c.shipFrom)}</td><th style={{ width: 130 }}>Destination</th><td>{cn(c.destination)}{c.destinationRegion ? ` — ${c.destinationRegion}` : ""}</td></tr>
-              <tr><th>Contract / PO</th><td>{c.contractRef || "—"}</td><th>Incoterms / date</th><td>{[c.incoterms, c.shipDate && fmtDate(c.shipDate)].filter(Boolean).join(" · ") || "—"}</td></tr>
-              <tr><th>Exporter of record</th><td colSpan={3}>{c.exporter || "—"}</td></tr>
-              <tr><th>Stated end use (用途)</th><td colSpan={3}>{c.endUseDescription || "—"}</td></tr>
+              <tr>
+                <th style={{ width: 150 }}>Title</th>
+                <td colSpan={3} className="font-medium">
+                  {c.title}
+                </td>
+              </tr>
+              <tr>
+                <th>Ships from</th>
+                <td>{cn(c.shipFrom)}</td>
+                <th style={{ width: 120 }}>Destination</th>
+                <td>
+                  {cn(c.destination)}
+                  {c.destinationRegion ? ` — ${c.destinationRegion}` : ""}
+                </td>
+              </tr>
+              <tr>
+                <th>Contract / PO</th>
+                <td>{c.contractRef || "—"}</td>
+                <th>Incoterms / date</th>
+                <td>{[c.incoterms, c.shipDate && fmtDate(c.shipDate)].filter(Boolean).join(" · ") || "—"}</td>
+              </tr>
+              <tr>
+                <th>Exporter of record</th>
+                <td colSpan={3}>{c.exporter || "—"}</td>
+              </tr>
+              <tr>
+                <th>Stated end use (用途)</th>
+                <td colSpan={3}>{c.endUseDescription || "—"}</td>
+              </tr>
             </tbody>
           </table>
 
-          <h2>2. Determination</h2>
-          <div className="keep mb-2 flex items-center gap-3">
-            <span className="rounded border border-[#111] px-2 py-0.5 text-[13px] font-semibold">{OUTCOME[a.overall].label}</span>
-            <span className="font-medium">{a.headline}</span>
-          </div>
+          <Heading n={2}>Determination by regime</Heading>
           <table>
             <thead>
-              <tr><th style={{ width: 170 }}>Regime</th><th style={{ width: 150 }}>Outcome</th><th>Why it attaches / summary</th></tr>
+              <tr>
+                <th style={{ width: 190 }}>Regime</th>
+                <th style={{ width: 150 }}>Outcome</th>
+                <th>Why it attaches / summary</th>
+              </tr>
             </thead>
             <tbody>
               {a.jurisdictions.map((j) => (
                 <tr key={j.jurisdiction}>
                   <td>{j.jurisdiction === "JP" ? "Japan — FEFTA (外為法)" : j.jurisdiction === "US" ? "United States — EAR" : "China — Export Control Law"}</td>
-                  <td>{j.nexus.attaches === false ? "Does not attach" : OUTCOME[j.outcome].label}</td>
+                  <td className="font-medium">{j.nexus.attaches === false ? "Does not attach" : OUTCOME[j.outcome].label}</td>
                   <td>{j.nexus.reasons.join("; ")}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          <h2>3. Item classification (該非判定)</h2>
+          <Heading n={3} ja="該非判定">
+            Item classification
+          </Heading>
           <table>
             <thead>
               <tr>
                 <th>Item</th>
                 <th style={{ width: 150 }}>Japan (輸出令別表第一)</th>
                 <th style={{ width: 150 }}>US (CCL)</th>
-                <th style={{ width: 150 }}>Outcome</th>
+                <th style={{ width: 160 }}>Outcome</th>
               </tr>
             </thead>
             <tbody>
@@ -98,15 +171,15 @@ export function ReportPage() {
                   <tr key={i.id}>
                     <td>
                       <div className="font-medium">{i.name}</div>
-                      <div className="text-[11px] text-[#555]">{[i.manufacturer, i.model, i.hsCode && `HS ${i.hsCode}`, `qty ${i.quantity}`, i.unitValue !== undefined && `${i.currency} ${i.unitValue.toLocaleString()}`].filter(Boolean).join(" · ")}</div>
+                      <div className="sub">{[i.manufacturer, i.model, i.hsCode && `HS ${i.hsCode}`, `qty ${i.quantity}`, i.unitValue !== undefined && `${i.currency} ${i.unitValue.toLocaleString()}`].filter(Boolean).join(" · ")}</div>
                     </td>
                     <td>
                       {i.jp.listStatus === "listed" ? `該当 ${i.jp.kou}` : i.jp.listStatus === "not_listed" ? "非該当 (1–15の項)" : "Not classified"}
-                      {i.jp.classificationBasis && <div className="text-[11px] text-[#555]">{i.jp.classificationBasis}</div>}
+                      {i.jp.classificationBasis && <div className="sub">{i.jp.classificationBasis}</div>}
                     </td>
                     <td>
-                      <span className="font-mono">{i.us.eccn ? `${i.us.eccn}${i.us.paragraph ? `.${i.us.paragraph}` : ""}` : "—"}</span> <span className="text-[11px] text-[#555]">({i.us.classification})</span>
-                      {i.us.classificationBasis && <div className="text-[11px] text-[#555]">{i.us.classificationBasis}</div>}
+                      <span className="mono">{i.us.eccn ? `${i.us.eccn}${i.us.paragraph ? `.${i.us.paragraph}` : ""}` : "—"}</span> <span className="sub">({i.us.classification})</span>
+                      {i.us.classificationBasis && <div className="sub">{i.us.classificationBasis}</div>}
                     </td>
                     <td>
                       {ja && <div>JP: {ja.summary}</div>}
@@ -118,17 +191,27 @@ export function ReportPage() {
             </tbody>
           </table>
 
-          <h2>4. Parties and screening (需要者・取引経路)</h2>
+          <Heading n={4} ja="需要者・取引経路">
+            Parties and screening
+          </Heading>
           <table>
             <thead>
-              <tr><th>Party</th><th style={{ width: 130 }}>Role</th><th style={{ width: 120 }}>Country</th><th>Screening result and disposition</th></tr>
+              <tr>
+                <th>Party</th>
+                <th style={{ width: 130 }}>Role</th>
+                <th style={{ width: 120 }}>Country</th>
+                <th>Screening result and disposition</th>
+              </tr>
             </thead>
             <tbody>
               {c.parties.map((p) => {
                 const s = c.screenings[p.id];
                 return (
                   <tr key={p.id}>
-                    <td className="font-medium">{p.name}{p.address && <div className="text-[11px] font-normal text-[#555]">{p.address}</div>}</td>
+                    <td>
+                      <div className="font-medium">{p.name}</div>
+                      {p.address && <div className="sub">{p.address}</div>}
+                    </td>
                     <td>{ROLE[p.role]}</td>
                     <td>{cn(p.country)}</td>
                     <td>
@@ -138,10 +221,12 @@ export function ReportPage() {
                         `No potential matches (score ≥ ${s.threshold}); screened ${fmtDate(s.ranAt)} against lists as of ${s.dataAsOf}`
                       ) : (
                         <div>
-                          <div className="text-[11px] text-[#555]">Screened {fmtDate(s.ranAt)} (lists as of {s.dataAsOf}), threshold {s.threshold}</div>
+                          <div className="sub">
+                            Screened {fmtDate(s.ranAt)} (lists as of {s.dataAsOf}), threshold {s.threshold}
+                          </div>
                           {s.hits.map((h) => (
-                            <div key={h.entryId}>
-                              {LIST_NAMES[h.list]?.name ?? h.list}: {h.matchedName} ({Math.round(h.score)}) — <strong>{h.disposition === "cleared" ? "not a match" : h.disposition}</strong>
+                            <div key={h.entryId} className="mt-0.5">
+                              {LIST_NAMES[h.list]?.name ?? h.list}: {h.matchedName} ({Math.round(h.score)}) — <strong className="font-semibold">{h.disposition === "cleared" ? "not a match" : h.disposition}</strong>
                               {h.by ? `, ${h.by}` : ""}
                               {h.note ? ` — ${h.note}` : ""}
                             </div>
@@ -155,7 +240,9 @@ export function ReportPage() {
             </tbody>
           </table>
 
-          <h2>5. End-use and end-user checks (用途・需要者チェック)</h2>
+          <Heading n={5} ja="用途・需要者チェック">
+            End-use and end-user checks
+          </Heading>
           <table>
             <tbody>
               {questions
@@ -163,65 +250,104 @@ export function ReportPage() {
                 .map((qq) => (
                   <tr key={qq.id}>
                     <td>{qq.text}</td>
-                    <td style={{ width: 70 }} className="font-semibold">{qq.answer === "unknown" ? "—" : qq.answer === "yes" ? "Yes" : "No"}</td>
-                    <td style={{ width: 170 }} className="text-[11px] text-[#555]">{qq.cite.label}</td>
+                    <td style={{ width: 84 }} className="font-semibold">
+                      {qq.answer === "unknown" ? "—" : qq.answer === "yes" ? "Yes" : "No"}
+                    </td>
+                    <td style={{ width: 170 }} className="sub">
+                      {qq.cite.label}
+                    </td>
                   </tr>
                 ))}
               <tr>
                 <td>BIS red flags (Supp. No. 3 to Part 732)</td>
-                <td className="font-semibold">{questions.filter((x) => x.group === "red_flag" && x.answer === "yes").length} present</td>
-                <td className="text-[11px] text-[#555]">{questions.filter((x) => x.group === "red_flag" && x.answer !== "unknown").length} of {questions.filter((x) => x.group === "red_flag").length} reviewed</td>
+                <td className="font-semibold">{redFlags.filter((x) => x.answer === "yes").length} present</td>
+                <td className="sub">
+                  {redFlags.filter((x) => x.answer !== "unknown").length} of {redFlags.length} reviewed
+                </td>
               </tr>
             </tbody>
           </table>
 
-          <h2>6. Findings and legal basis</h2>
+          <Heading n={6}>Findings and legal basis</Heading>
           {a.jurisdictions
             .filter((j) => j.nexus.attaches !== false)
             .map((j) => (
-              <div key={j.jurisdiction} className="keep mb-3">
+              <div key={j.jurisdiction} className="keep mb-4">
                 <div className="mb-1 font-semibold">{j.jurisdiction === "JP" ? "Japan" : j.jurisdiction === "US" ? "United States" : "China"}</div>
-                <ul className="space-y-0.5 pl-4">
+                <ul className="space-y-1 pl-4">
                   {[...j.findings, ...j.items.flatMap((i) => i.findings)]
                     .filter((f: Finding) => f.status !== "pass" && f.status !== "info")
                     .map((f, n) => (
-                      <li key={n} className="list-disc">
-                        <span className="font-medium">{f.title}</span>
-                        {f.citations.length > 0 && <span className="text-[11px] text-[#555]"> — {f.citations.map((x) => x.label).join("; ")}</span>}
+                      <li key={n} className="list-disc marker:text-[#86868b]">
+                        {f.title}
+                        {f.citations.length > 0 && <span className="sub"> — {f.citations.map((x) => x.label).join("; ")}</span>}
                       </li>
                     ))}
                 </ul>
                 {j.items.some((i) => i.exceptions.length) && (
-                  <div className="mt-1.5">
+                  <div className="mt-2">
                     <div className="text-[11.5px] font-semibold">Exceptions considered</div>
-                    {j.items.flatMap((i) => i.exceptions.map((e) => ({ e, item: c.items.find((x) => x.id === i.itemId)?.name }))).map(({ e, item }, n) => (
-                      <div key={n} className="mt-1">
-                        {e.code} — {e.name} ({item}): {e.conditions.map((cc) => `☐ ${cc}`).join("  ")}
-                      </div>
-                    ))}
+                    {j.items
+                      .flatMap((i) => i.exceptions.map((e) => ({ e, item: c.items.find((x) => x.id === i.itemId)?.name })))
+                      .map(({ e, item }, n) => (
+                        <div key={n} className="mt-1">
+                          {e.code} — {e.name} ({item}): {e.conditions.map((cc) => `☐ ${cc}`).join("  ")}
+                        </div>
+                      ))}
                   </div>
                 )}
               </div>
             ))}
 
-          <h2>7. Decision and sign-off (総合判定)</h2>
-          <table className="keep">
-            <tbody>
-              <tr><th style={{ width: 170 }}>Decision</th><td colSpan={3}>{lastDecision ? `${lastDecision.action === "approved" ? "Approved" : "Rejected"} by ${lastDecision.by || "—"} on ${fmtDate(lastDecision.at)}${lastDecision.note ? ` — ${lastDecision.note}` : ""}` : "Pending"}</td></tr>
-              <tr><th>Licensing path</th><td colSpan={3}>☐ Not subject &nbsp; ☐ Not controlled (非該当) &nbsp; ☐ License exception (許可例外) &nbsp; ☐ Bulk license (包括許可) &nbsp; ☐ Individual license (個別許可)</td></tr>
-              <tr style={{ height: 54 }}><th>Prepared by (担当者)</th><td /><th style={{ width: 130 }}>Reviewed by (上長)</th><td /></tr>
-              <tr style={{ height: 54 }}><th>Final approval (最終判断権者)</th><td colSpan={3} /></tr>
-            </tbody>
-          </table>
+          <Heading n={7} ja="総合判定">
+            Decision and sign-off
+          </Heading>
+          <div className="keep">
+            <table>
+              <tbody>
+                <tr>
+                  <th style={{ width: 150 }}>Decision</th>
+                  <td>{lastDecision ? `${lastDecision.action === "approved" ? "Approved" : "Rejected"} by ${lastDecision.by || "—"} on ${fmtDate(lastDecision.at)}${lastDecision.note ? ` — ${lastDecision.note}` : ""}` : "Pending"}</td>
+                </tr>
+                <tr>
+                  <th>Licensing path</th>
+                  <td className="leading-[1.9]">
+                    {["Not subject", "Not controlled (非該当)", "License exception (許可例外)", "Bulk license (包括許可)", "Individual license (個別許可)"].map((x) => (
+                      <span key={x} className="mr-5 inline-block whitespace-nowrap">
+                        ☐ {x}
+                      </span>
+                    ))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="mt-6 grid grid-cols-3 gap-6">
+              {["Prepared by (担当者)", "Reviewed by (上長)", "Final approval (最終判断権者)"].map((x) => (
+                <div key={x}>
+                  <div className="h-12 border-b border-[#1d1d1f]" />
+                  <div className="mt-1.5 flex justify-between text-[11px] text-[#6e6e73]">
+                    <span>{x}</span>
+                    <span>Date</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {c.notes && (
             <>
-              <h2>Notes</h2>
+              <Heading>Notes</Heading>
               <div className="whitespace-pre-line">{c.notes}</div>
             </>
           )}
-          <footer className="mt-8 border-t border-[#d4d4d8] pt-3 text-[10.5px] text-[#666]">
-            Determination computed {new Date(a.computedAt).toLocaleString("en-GB")} by {a.engineVersion} against: eCFR 15 CFR (as of {a.dataVersions.ccl}); 輸出貿易管理令 (revision {a.dataVersions.jpLaw}); 貨物等省令 ({a.dataVersions.jpList}){a.dataVersions.csl ? `; Consolidated Screening List (${a.dataVersions.csl})` : ""}
-            {a.dataVersions.meti ? `; METI End User List (${a.dataVersions.meti})` : ""}. Kanmon is a decision-support tool; the exporter remains responsible for compliance. Retain this record (15 CFR Part 762: five years; METI guidance: seven years).
+
+          <footer className="mt-10 border-t border-[#d2d2d7] pt-3 text-[10.5px] leading-relaxed text-[#6e6e73]">
+            <p className="font-semibold text-[#1d1d1f]">Decision support, not legal advice.</p>
+            <p className="mt-1">
+              Determination computed {new Date(a.computedAt).toLocaleString("en-GB")} by {a.engineVersion} against: eCFR 15 CFR (as of {a.dataVersions.ccl}); 輸出貿易管理令 (revision {a.dataVersions.jpLaw}); 貨物等省令 ({a.dataVersions.jpList})
+              {a.dataVersions.csl ? `; Consolidated Screening List (${a.dataVersions.csl})` : ""}
+              {a.dataVersions.meti ? `; METI End User List (${a.dataVersions.meti})` : ""}. Kanmon is a decision-support tool; the exporter remains responsible for compliance. Retain this record (15 CFR Part 762: five years; METI guidance: seven years).
+            </p>
           </footer>
         </div>
       </article>

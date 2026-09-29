@@ -1,39 +1,45 @@
 // Product master: classified items saved for reuse across cases.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Boxes, FileSearch, Search, Trash2 } from "lucide-react";
+import { Package, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Page } from "../components/AppShell.tsx";
 import { Button, Card, Dialog, Empty, IconButton, Input, PageHeader, Skeleton, toast } from "../components/ui/index.tsx";
 import { api, type Item } from "../lib/api.ts";
-import { cx, fmtDate, relTime } from "../lib/format.ts";
+import { fmtDate, relTime } from "../lib/format.ts";
 
 type Product = Item & { updatedAt: string };
 
-const US_STATE: Record<string, { dot: string; label: string }> = {
-  confirmed: { dot: "bg-green", label: "Confirmed classification" },
-  provisional: { dot: "bg-amber", label: "Provisional classification" },
-  unclassified: { dot: "bg-line-strong", label: "Not yet classified" },
+const US_STATE: Record<string, string> = {
+  confirmed: "Confirmed",
+  provisional: "Provisional",
+  unclassified: "Not yet classified",
 };
+
+const GRID = "grid grid-cols-[minmax(0,1fr)_150px_150px_110px_76px_28px] items-center gap-4";
 
 function UsClass({ p }: { p: Product }) {
   const eccn = p.us?.eccn?.trim() ?? "";
   const para = p.us?.paragraph?.replace(/^\./, "").trim() ?? "";
-  const state = US_STATE[p.us?.classification ?? "unclassified"] ?? US_STATE.unclassified;
-  if (!eccn) return <span className="text-[12.5px] text-fg-3">Unclassified</span>;
+  if (!eccn) return <span className="text-[13px] text-fg-3">Not classified</span>;
   const isEccn = /^\d[A-E]\d{3}$/i.test(eccn);
+  const code = (
+    <>
+      {eccn.toUpperCase()}
+      {para && <span className="text-fg-2">.{para}</span>}
+    </>
+  );
   return (
-    <span className="inline-flex items-center gap-2" title={state.label}>
-      <span className={cx("size-1.5 shrink-0 rounded-full", state.dot)} />
+    <div className="min-w-0">
       {isEccn ? (
-        <Link to={`/regulations/ccl/${eccn.toUpperCase()}${para ? `?p=${encodeURIComponent(para)}` : ""}`} onClick={(e) => e.stopPropagation()} className="font-mono text-[12.5px] text-fg hover:underline">
-          {eccn.toUpperCase()}
-          {para && <span className="text-fg-3">.{para}</span>}
+        <Link to={`/regulations/ccl/${eccn.toUpperCase()}${para ? `?p=${encodeURIComponent(para)}` : ""}`} className="block truncate font-mono text-[13px] font-medium text-fg hover:text-accent-text hover:underline">
+          {code}
         </Link>
       ) : (
-        <span className="font-mono text-[12.5px] text-fg">{eccn}</span>
+        <span className="block truncate font-mono text-[13px] font-medium text-fg">{code}</span>
       )}
-    </span>
+      <div className="text-[12px] text-fg-3">{US_STATE[p.us?.classification ?? "unclassified"] ?? US_STATE.unclassified}</div>
+    </div>
   );
 }
 
@@ -41,13 +47,19 @@ function JpClass({ p }: { p: Product }) {
   const status = p.jp?.listStatus ?? "unclassified";
   if (status === "listed")
     return (
-      <span className="inline-flex items-center gap-1.5 text-[12.5px]">
-        <span className="font-medium text-orange-text">該当</span>
-        <span className="text-fg-2">{p.jp?.kou || "項番未記入"}</span>
-      </span>
+      <div className="min-w-0">
+        <div className="truncate text-[13px] font-medium">{p.jp?.kou || "項番未記入"}</div>
+        <div className="text-[12px] text-fg-3">該当</div>
+      </div>
     );
-  if (status === "not_listed") return <span className="text-[12.5px] text-fg-2">非該当</span>;
-  return <span className="text-[12.5px] text-fg-3">Unclassified</span>;
+  if (status === "not_listed")
+    return (
+      <div className="min-w-0">
+        <div className="text-[13px] font-medium">非該当</div>
+        <div className="text-[12px] text-fg-3">Not listed</div>
+      </div>
+    );
+  return <span className="text-[13px] text-fg-3">Not classified</span>;
 }
 
 export function ProductsPage() {
@@ -78,25 +90,21 @@ export function ProductsPage() {
     <Page wide>
       <PageHeader
         title="Product master"
-        description="Classified items saved for reuse. Each record keeps the US ECCN, the Japanese 該非判定 and the HS code, so the next case for the same product starts classified."
+        description="Classified products, ready to reuse. A new case for the same product starts with its classification."
         actions={
           <Link to="/classify">
-            <Button variant="primary" icon={<FileSearch className="size-3.5" />}>
-              Classify a product
-            </Button>
+            <Button variant="primary">Classify a product</Button>
           </Link>
         }
       />
 
       {list.length > 0 && (
-        <div className="mb-3 flex items-center gap-2">
-          <div className="relative w-80">
-            <Search className="pointer-events-none absolute left-2.5 top-2 size-4 text-fg-3" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Escape" && setQ("")} placeholder="Filter by name, model, ECCN, 項番 or HS code" className="pl-8" aria-label="Filter products" />
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <span className="px-1 text-[13px] tabular text-fg-3">{rows.length === list.length ? `${list.length} product${list.length === 1 ? "" : "s"}` : `${rows.length} of ${list.length}`}</span>
+          <div className="relative ml-auto w-80">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-3" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Escape" && setQ("")} placeholder="Name, model, ECCN, 項番 or HS code" className="pl-9" aria-label="Filter products" />
           </div>
-          <span className="ml-auto text-[12.5px] tabular text-fg-3">
-            {rows.length === list.length ? `${list.length} product${list.length === 1 ? "" : "s"}` : `${rows.length} of ${list.length}`}
-          </span>
         </div>
       )}
 
@@ -104,79 +112,52 @@ export function ProductsPage() {
         {products.isLoading ? (
           <div className="space-y-3 p-4">
             {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-9" />
+              <Skeleton key={i} className="h-10" />
             ))}
           </div>
         ) : products.isError ? (
-          <Empty icon={<Boxes className="size-5" />} title="Products could not be loaded">
+          <Empty icon={<Package />} title="Products could not be loaded">
             {(products.error as Error).message}
           </Empty>
         ) : list.length === 0 ? (
-          <Empty
-            icon={<Boxes className="size-5" />}
-            title="No products yet"
-            action={
-              <Link to="/classify">
-                <Button icon={<FileSearch className="size-3.5" />}>Classify a product</Button>
-              </Link>
-            }
-          >
-            Products are saved from the Classify page, or from an item on a case once it has been classified. Saved products can be added to new cases with their classification intact.
+          <Empty icon={<Package />} title="No products yet">
+            Save a classification from Classify a product, and it appears here, ready for the next case.
           </Empty>
         ) : rows.length === 0 ? (
-          <Empty icon={<Search className="size-5" />} title="No products match">
-            Try a model number, an ECCN such as 3A001 or an HS heading.
+          <Empty icon={<Search />} title="No products match">
+            Try a model number, an ECCN such as 3A001, or an HS heading.
           </Empty>
         ) : (
           <div className="scroll-thin overflow-x-auto">
-            <table className="w-full min-w-[900px] text-[13px]">
-              <thead>
-                <tr className="border-b border-line bg-panel-2/60 text-left text-[11.5px] font-medium text-fg-3">
-                  <th className="px-4 py-2 font-medium">Product</th>
-                  <th className="px-4 py-2 font-medium">Manufacturer / model</th>
-                  <th className="px-4 py-2 font-medium">ECCN</th>
-                  <th className="px-4 py-2 font-medium">Japan 該非</th>
-                  <th className="px-4 py-2 font-medium">HS code</th>
-                  <th className="px-4 py-2 text-right font-medium">Updated</th>
-                  <th className="w-12 px-2 py-2" aria-label="Actions" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
+            <div className="min-w-[760px]">
+              <div className={`${GRID} border-b border-line px-5 py-2 text-[12px] font-medium text-fg-3`}>
+                <span>Product</span>
+                <span>ECCN</span>
+                <span>Japan 項番</span>
+                <span>HS code</span>
+                <span className="text-right">Updated</span>
+                <span />
+              </div>
+              <div className="k-list" style={{ ["--inset" as string]: "20px" }}>
                 {rows.map((p) => (
-                  <tr key={p.id} className="group transition-colors hover:bg-panel-2/50">
-                    <td className="max-w-[320px] px-4 py-2.5">
-                      <div className="truncate font-medium">{p.name}</div>
-                      {p.description && <div className="truncate text-[12px] text-fg-3">{p.description}</div>}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {p.manufacturer || p.model ? (
-                        <div className="min-w-0">
-                          <div className="truncate text-fg-2">{p.manufacturer || "—"}</div>
-                          {p.model && <div className="truncate font-mono text-[12px] text-fg-3">{p.model}</div>}
-                        </div>
-                      ) : (
-                        <span className="text-fg-3">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <UsClass p={p} />
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <JpClass p={p} />
-                    </td>
-                    <td className="px-4 py-2.5 font-mono text-[12.5px] text-fg-2">{p.hsCode || <span className="font-sans text-fg-3">—</span>}</td>
-                    <td className="whitespace-nowrap px-4 py-2.5 text-right text-fg-3" title={fmtDate(p.updatedAt)}>
+                  <div key={p.id} className={`${GRID} group px-5 py-3`}>
+                    <div className="min-w-0">
+                      <div className="truncate text-[14.5px] font-medium">{p.name}</div>
+                      <div className="mt-0.5 truncate text-[12.5px] text-fg-3">{[p.manufacturer, p.model].filter(Boolean).join(" · ") || p.description || "—"}</div>
+                    </div>
+                    <UsClass p={p} />
+                    <JpClass p={p} />
+                    <span className="truncate font-mono text-[13px] text-fg-2">{p.hsCode || <span className="font-sans text-fg-3">—</span>}</span>
+                    <span className="text-right text-[12.5px] text-fg-3" title={fmtDate(p.updatedAt)}>
                       {relTime(p.updatedAt)}
-                    </td>
-                    <td className="px-2 py-2.5 text-right">
-                      <IconButton label="Delete product" onClick={() => setPending(p)} className="opacity-0 focus-visible:opacity-100 group-hover:opacity-100 hover:text-red-text">
-                        <Trash2 className="size-3.5" />
-                      </IconButton>
-                    </td>
-                  </tr>
+                    </span>
+                    <IconButton label="Delete product" onClick={() => setPending(p)} className="opacity-0 hover:text-red-text focus-visible:opacity-100 group-hover:opacity-100">
+                      <Trash2 className="size-3.5" />
+                    </IconButton>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
           </div>
         )}
       </Card>
@@ -184,30 +165,22 @@ export function ProductsPage() {
       <Dialog
         open={!!pending}
         onOpenChange={(o) => !o && !remove.isPending && setPending(null)}
-        title="Delete this product?"
-        description="Cases that already use it keep their own copy of the item."
+        title={pending ? `Delete “${pending.name}”?` : "Delete this product?"}
+        description="Cases that already use it keep their own copy. The deletion is recorded in the audit trail."
         footer={
           <>
-            <Button variant="ghost" onClick={() => setPending(null)} disabled={remove.isPending}>
+            <Button onClick={() => setPending(null)} disabled={remove.isPending}>
               Cancel
             </Button>
-            <Button variant="danger" loading={remove.isPending} onClick={() => pending && remove.mutate(pending.id)} icon={<Trash2 className="size-3.5" />}>
-              Delete product
+            <Button variant="danger" loading={remove.isPending} onClick={() => pending && remove.mutate(pending.id)}>
+              Delete
             </Button>
           </>
         }
       >
-        {pending && (
-          <div className="rounded-lg border border-line bg-panel-2/50 px-3 py-2.5 text-[13px]">
-            <div className="font-medium">{pending.name}</div>
-            <div className="mt-0.5 flex flex-wrap gap-x-3 text-[12px] text-fg-3">
-              {pending.manufacturer && <span>{pending.manufacturer}</span>}
-              {pending.model && <span className="font-mono">{pending.model}</span>}
-              {pending.us?.eccn && <span className="font-mono">{pending.us.eccn}</span>}
-            </div>
-            <div className="mt-2 text-[12px] text-fg-3">The deletion is recorded in the audit trail.</div>
-          </div>
-        )}
+        {pending && (pending.manufacturer || pending.model || pending.us?.eccn) ? (
+          <div className="pb-1 text-[13px] text-fg-2">{[pending.manufacturer, pending.model, pending.us?.eccn && `ECCN ${pending.us.eccn}`].filter(Boolean).join(" · ")}</div>
+        ) : null}
       </Dialog>
     </Page>
   );

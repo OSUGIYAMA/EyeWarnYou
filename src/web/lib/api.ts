@@ -115,6 +115,7 @@ export interface CaseSummary {
   itemCount: number;
   partyCount: number;
   createdBy: string;
+  progress?: { next: { id: string; label: string; anchor: string } | null; done: number; total: number };
 }
 
 export interface CountryInfo extends Country {

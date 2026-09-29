@@ -7,7 +7,7 @@ import { api, type JpAppendix1Row } from "../../lib/api.ts";
 import { cx } from "../../lib/format.ts";
 
 const trigger =
-  "flex h-8 w-full items-center gap-2 rounded-lg border border-line-strong bg-panel px-2.5 text-left text-[13.5px] shadow-sm transition-colors hover:border-fg-3/50 focus:border-accent focus:outline-none focus:ring-3 focus:ring-accent/15";
+  "flex h-[34px] w-full items-center gap-2 rounded-[9px] border border-transparent bg-fill-2 px-3 text-left text-[14px] transition-[background-color,border-color,box-shadow] hover:bg-fill focus:border-accent focus:bg-panel focus:outline-none focus:ring-4 focus:ring-accent/15";
 
 /** ECCN autocomplete backed by the CCL full-text index. Accepts "EAR99". */
 export function EccnInput({ value, onChange }: { value: string; onChange: (eccn: string) => void }) {
@@ -36,21 +36,21 @@ export function EccnInput({ value, onChange }: { value: string; onChange: (eccn:
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="start" sideOffset={4} className="z-50 w-[480px] overflow-hidden rounded-xl border border-line bg-panel shadow-float animate-in">
+        <Popover.Content align="start" sideOffset={4} className="z-50 w-[480px] overflow-hidden rounded-xl bg-panel shadow-float animate-in">
           <Command shouldFilter={false}>
-            <Command.Input autoFocus value={q} onValueChange={setQ} placeholder="Type an ECCN (3A001) or describe the item…" className="h-9 w-full border-b border-line bg-transparent px-3 text-[13px] outline-none placeholder:text-fg-3" />
+            <Command.Input autoFocus value={q} onValueChange={setQ} placeholder="Type an ECCN (3A001) or describe the item…" className="h-10 w-full border-b border-line bg-transparent px-3.5 text-[14px] outline-none placeholder:text-fg-3" />
             <Command.List className="scroll-thin max-h-72 overflow-y-auto p-1">
-              <Command.Item value="EAR99" onSelect={() => (onChange("EAR99"), setOpen(false))} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] data-[selected=true]:bg-panel-2">
+              <Command.Item value="EAR99" onSelect={() => (onChange("EAR99"), setOpen(false))} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] data-[selected=true]:bg-fill">
                 <span className="w-14 font-mono text-[12px] font-medium">EAR99</span>
                 <span className="text-fg-3">Subject to the EAR but not listed on the CCL</span>
               </Command.Item>
               {value && (
-                <Command.Item value="__clear" onSelect={() => (onChange(""), setOpen(false))} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-fg-3 data-[selected=true]:bg-panel-2">
+                <Command.Item value="__clear" onSelect={() => (onChange(""), setOpen(false))} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-fg-3 data-[selected=true]:bg-fill">
                   Clear classification
                 </Command.Item>
               )}
               {(res.data?.results ?? []).map((r) => (
-                <Command.Item key={r.id} value={r.id} onSelect={() => (onChange(r.id), setOpen(false))} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-[13px] data-[selected=true]:bg-panel-2">
+                <Command.Item key={r.id} value={r.id} onSelect={() => (onChange(r.id), setOpen(false))} className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-[13px] data-[selected=true]:bg-fill">
                   <span className="w-14 shrink-0 font-mono text-[12px] font-medium">{r.id}</span>
                   <span className="line-clamp-2 text-fg-2">{r.heading}</span>
                 </Command.Item>
@@ -89,13 +89,13 @@ export function KouPicker({ value, onChange }: { value: string; onChange: (kou: 
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="start" sideOffset={4} className="z-50 w-[520px] overflow-hidden rounded-xl border border-line bg-panel shadow-float animate-in">
+        <Popover.Content align="start" sideOffset={4} className="z-50 w-[520px] overflow-hidden rounded-xl bg-panel shadow-float animate-in">
           <Command>
-            <Command.Input autoFocus placeholder="Search 項番 or description (集積回路, 工作機械 …)" className="h-9 w-full border-b border-line bg-transparent px-3 text-[13px] outline-none placeholder:text-fg-3" />
+            <Command.Input autoFocus placeholder="Search 項番 or description (集積回路, 工作機械 …)" className="h-10 w-full border-b border-line bg-transparent px-3.5 text-[14px] outline-none placeholder:text-fg-3" />
             <Command.List className="scroll-thin max-h-80 overflow-y-auto p-1">
               <Command.Empty className="px-3 py-6 text-center text-[12.5px] text-fg-3">No match</Command.Empty>
               {rows.map((r) => (
-                <Command.Item key={r.label} value={`${r.label} ${r.text}`} onSelect={() => (onChange(r.label), setOpen(false))} className={cx("flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-[13px] data-[selected=true]:bg-panel-2")}>
+                <Command.Item key={r.label} value={`${r.label} ${r.text}`} onSelect={() => (onChange(r.label), setOpen(false))} className={cx("flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-[13px] data-[selected=true]:bg-fill")}>
                   <span className="w-24 shrink-0 font-medium">{r.label}</span>
                   <span className="line-clamp-2 text-[12.5px] text-fg-2">{r.text}</span>
                 </Command.Item>

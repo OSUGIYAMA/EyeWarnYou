@@ -6,7 +6,6 @@ import {
   CHART_COLUMNS,
   COUNTRY_GROUP_IDS,
   type Ccl,
-  type CclBlock,
   type ChartColumn,
   type CountryChart,
   type CountryGroupId,

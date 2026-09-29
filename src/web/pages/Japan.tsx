@@ -1,13 +1,14 @@
 // Japan (FEFTA / 外為法) reference: 輸出令別表第一 list control, the 16の項 catch-all and the destination lists.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Check, ExternalLink, Landmark, Search } from "lucide-react";
+import { Check, ChevronRight, ExternalLink, Landmark, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { JpCountryLists, JpDerived } from "@/shared/regs.ts";
 import { Page, useMeta } from "../components/AppShell.tsx";
 import { CountryName } from "../components/CountryPicker.tsx";
+import { ToneDot } from "../components/EccnView.tsx";
 import { useRegSheet } from "../components/RegSheet.tsx";
-import { Badge, Button, Card, CardHeader, Empty, Input, PageHeader, SectionLabel, Skeleton, TabPanel, Tabs } from "../components/ui/index.tsx";
+import { Button, Card, Empty, Input, PageHeader, Section, Select, Skeleton, TabPanel, Tabs } from "../components/ui/index.tsx";
 import { api, type JpAppendix1Row, type SourceStamp } from "../lib/api.ts";
 import { cx, fmtDate, type Tone } from "../lib/format.ts";
 
@@ -137,9 +138,22 @@ function chapterRuns(ch: string[]): string {
 
 function CiteButton({ children, onClick, className }: { children: ReactNode; onClick: () => void; className?: string }) {
   return (
-    <button type="button" onClick={onClick} className={cx("whitespace-nowrap text-[12px] text-accent-text decoration-accent/40 underline-offset-2 hover:underline", className)}>
+    <button type="button" onClick={onClick} className={cx("whitespace-nowrap text-[13px] text-accent-text hover:underline", className)}>
       {children}
     </button>
+  );
+}
+
+/** A disclosure for supporting text: closed by default, one line when closed. */
+function Disclosure({ summary, children }: { summary: ReactNode; children: ReactNode }) {
+  return (
+    <details className="group px-4 py-2.5">
+      <summary className="flex cursor-pointer list-none items-center gap-1 text-[13px] text-fg-2 hover:text-fg [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" />
+        {summary}
+      </summary>
+      <div className="mt-2 pl-[18px] text-[13px] leading-relaxed text-fg-2">{children}</div>
+    </details>
   );
 }
 
@@ -154,21 +168,14 @@ export function JapanPage() {
   const goodsStamp = meta.data?.stamps.jpList ?? jp.data?.stamp;
 
   return (
-    <Page wide>
+    <Page>
       <PageHeader
         title="Japan (FEFTA)"
         description={
           <>
-            外国為替及び外国貿易法 export controls: list control under 輸出貿易管理令 別表第一 (1–15の項), the catch-all under 16の項, and the destination lists that change what each requires.
-            <span className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-fg-3">
-              <span>
-                輸出令 as revised to <span className="tabular text-fg-2">{orderStamp ? fmtDate(orderStamp.asOf) : "…"}</span>
-              </span>
-              <span>·</span>
-              <span>
-                貨物等省令 as revised to <span className="tabular text-fg-2">{goodsStamp ? fmtDate(goodsStamp.asOf) : "…"}</span>
-              </span>
-              <span>·</span>
+            List control under 輸出令 別表第一, the catch-all under 16の項, and the destination lists that change what each requires.
+            <span className="mt-1 block text-[12.5px] text-fg-3">
+              輸出令 as revised to {orderStamp ? fmtDate(orderStamp.asOf) : "…"} · 貨物等省令 as revised to {goodsStamp ? fmtDate(goodsStamp.asOf) : "…"} ·{" "}
               <a href={orderStamp?.url ?? "https://laws.e-gov.go.jp/"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 hover:text-fg">
                 e-Gov法令 <ExternalLink className="size-3" />
               </a>
@@ -180,18 +187,18 @@ export function JapanPage() {
         value={tab}
         onValueChange={(v) => setParams(v === "list" ? {} : { tab: v }, { replace: true })}
         tabs={[
-          { value: "list", label: "別表第一 (list control)", count: jp.data?.appendix1.length },
+          { value: "list", label: "List control (別表第一)", count: jp.data?.appendix1.length },
           { value: "catchall", label: "Catch-all (16の項)" },
-          { value: "countries", label: "Country lists" },
+          { value: "countries", label: "Destination lists" },
         ]}
       >
-        <TabPanel value="list" className="pt-5 focus:outline-none">
+        <TabPanel value="list" className="pt-8 focus:outline-none">
           <ListControl data={jp.data} loading={jp.isLoading} />
         </TabPanel>
-        <TabPanel value="catchall" className="pt-5 focus:outline-none">
+        <TabPanel value="catchall" className="pt-8 focus:outline-none">
           <CatchAll derived={jp.data?.derived} />
         </TabPanel>
-        <TabPanel value="countries" className="pt-5 focus:outline-none">
+        <TabPanel value="countries" className="pt-8 focus:outline-none">
           <CountryLists lists={jp.data?.lists} loading={jp.isLoading} />
         </TabPanel>
       </Tabs>
@@ -249,51 +256,37 @@ function ListControl({ data, loading }: { data?: JpListResponse; loading: boolea
     const key = articleKey(h.label);
     if (key) openArticle(key);
   };
+  const jump = (kou: string) => {
+    setQ("");
+    requestAnimationFrame(() => document.getElementById(`kou-${kou}`)?.scrollIntoView({ block: "start", behavior: "smooth" }));
+  };
 
   const searching = dq.length >= 2;
   const hits = search.data?.results ?? [];
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
-      <nav aria-label="項 index" className="min-w-0 self-start xl:sticky xl:top-6">
-        <SectionLabel className="mb-2 hidden px-2 xl:block">項 (rows)</SectionLabel>
-        <div className="flex flex-wrap gap-1.5 xl:flex-col xl:flex-nowrap xl:gap-0.5">
-          {KOU.map((k) => (
-            <a
-              key={k.kou}
-              href={`#kou-${k.kou}`}
-              onClick={(e) => {
-                e.preventDefault();
-                setQ("");
-                requestAnimationFrame(() => document.getElementById(`kou-${k.kou}`)?.scrollIntoView({ block: "start", behavior: "smooth" }));
-              }}
-              title={`${k.kou}の項 — ${k.en}`}
-              className="flex h-8 min-w-0 items-center gap-2 rounded-lg px-2.5 text-[13px] text-fg-2 ring-1 ring-transparent transition-colors hover:bg-panel-2 hover:text-fg max-xl:ring-line xl:w-full"
-            >
-              <span className="w-9 shrink-0 font-mono text-[11.5px] text-fg-3">{k.kou}</span>
-              <span className="min-w-0 flex-1 truncate">{k.en}</span>
-              <span className="shrink-0 pl-2 text-right text-[11.5px] tabular text-fg-3">{grouped.get(k.kou)?.length ?? ""}</span>
-            </a>
-          ))}
-        </div>
-      </nav>
+    <div>
+      <div className="flex items-center gap-2.5 rounded-2xl bg-fill-2 px-4 transition-shadow focus-within:ring-4 focus-within:ring-accent/15">
+        <Search className="size-5 shrink-0 text-fg-3" />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Escape" && setQ("")}
+          placeholder="Search 別表第一 and 貨物等省令 — e.g. 集積回路, 工作機械, レーザー"
+          aria-label="Search the Japanese control list"
+          className="h-12 min-w-0 flex-1 bg-transparent text-[17px] tracking-tight outline-none placeholder:text-fg-3"
+        />
+        {q && (
+          <button type="button" onClick={() => setQ("")} className="rounded-full p-1 text-fg-3 hover:bg-fill hover:text-fg" aria-label="Clear search">
+            <X className="size-4" />
+          </button>
+        )}
+      </div>
+      <div className="mt-2.5 px-1 text-[13px] tabular text-fg-3">
+        {searching ? (search.data ? `${hits.length} result${hits.length === 1 ? "" : "s"}` : "Searching…") : data ? `${data.appendix1.length} rows in 17 項. Search covers the order and every line of the ministerial ordinance.` : ""}
+      </div>
 
-      <div className="min-w-0">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[260px] flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-2 size-4 text-fg-3" />
-            <Input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => e.key === "Escape" && setQ("")}
-              placeholder="Search 別表第一 and 貨物等省令 — e.g. 集積回路, 工作機械, レーザー"
-              className="pl-8"
-              aria-label="Search Japanese control list"
-            />
-          </div>
-          <span className="text-[12.5px] tabular text-fg-3">{searching ? (search.data ? `${hits.length} results` : "Searching…") : data ? `${data.appendix1.length} rows in 17 項` : ""}</span>
-        </div>
-
+      <div className="mt-10">
         {searching ? (
           <Card className={cx("overflow-hidden transition-opacity", search.isFetching && "opacity-70")}>
             {!search.data ? (
@@ -303,101 +296,126 @@ function ListControl({ data, loading }: { data?: JpListResponse; loading: boolea
                 ))}
               </div>
             ) : hits.length === 0 ? (
-              <Empty icon={<Search className="size-5" />} title={`No matches for “${dq}”`}>
-                Search matches the Japanese text of 輸出令別表第一 and every line of 貨物等省令. Try a shorter term.
+              <Empty icon={<Search />} title={`No matches for “${dq}”`}>
+                Try a shorter term.
               </Empty>
             ) : (
-              <div className="divide-y divide-line">
+              <div className="k-list">
                 {hits.map((h) => (
-                  <button key={h.id} type="button" onClick={() => onHit(h)} className="flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors hover:bg-panel-2/60 focus-visible:bg-panel-2 focus-visible:outline-none">
-                    <Badge tone={h.kind === "appendix1" ? "blue" : "violet"} className="mt-px w-[104px] shrink-0 justify-center whitespace-nowrap">
-                      {h.kind === "appendix1" ? "輸出令 別表第一" : "貨物等省令"}
-                    </Badge>
+                  <button key={h.id} type="button" onClick={() => onHit(h)} className="flex w-full items-start gap-4 px-4 py-3 text-left transition-colors hover:bg-fill-2">
                     <div className="min-w-0 flex-1">
-                      <div className="text-[12.5px] font-medium text-fg">{h.label.replace(/^貨物等省令\s*/, "")}</div>
-                      <div className="mt-0.5 line-clamp-2 text-[12.5px] leading-relaxed text-fg-2">
+                      <div className="text-[14px] font-medium">
+                        {h.label.replace(/^貨物等省令\s*/, "")} <span className="font-normal text-fg-3">{h.kind === "appendix1" ? "輸出令 別表第一" : "貨物等省令"}</span>
+                      </div>
+                      <div className="mt-0.5 line-clamp-2 text-[13px] leading-relaxed text-fg-2">
                         <Bolded text={h.text} query={dq} />
                       </div>
                     </div>
+                    <ChevronRight className="mt-0.5 size-4 shrink-0 text-fg-3" />
                   </button>
                 ))}
               </div>
             )}
           </Card>
         ) : loading ? (
-          <div className="space-y-6">
-            {[1, 2].map((i) => (
-              <Card key={i} className="space-y-3 p-4">
-                <Skeleton className="h-5 w-40" />
-                <Skeleton className="h-4" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-4 w-2/3" />
-              </Card>
-            ))}
+          <div className="space-y-3">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-4" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-2/3" />
           </div>
         ) : !data ? (
           <Card>
-            <Empty icon={<Landmark className="size-5" />} title="The Japanese control list could not be loaded">
-              Check that the Kanmon server is running and the regulatory data has been synced (Settings → Data).
+            <Empty icon={<Landmark />} title="The Japanese control list could not be loaded">
+              Check that the server is running and the regulatory data has been synced in Settings.
             </Empty>
           </Card>
         ) : (
-          <div className="space-y-6">
-            {KOU.map((k) => {
-              const rows = grouped.get(k.kou) ?? [];
-              if (!rows.length) return null;
-              const goodsLabel = k.goods ? articleLabel(k.goods) : undefined;
-              const techLabel = k.tech ? articleLabel(k.tech) : undefined;
-              return (
-                <section key={k.kou} id={`kou-${k.kou}`} className="scroll-mt-6">
-                  <div className="mb-2 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 px-1">
-                    <span className="text-[14px] font-semibold tracking-tight">{k.kou}の項</span>
-                    <span className="text-[13px] text-fg-2">{k.en}</span>
-                    <span className="text-[11.5px] tabular text-fg-3">{rows.length}</span>
-                    <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-fg-3">
-                      {k.kou === "1" ? (
-                        <CiteButton onClick={() => open({ kind: "section", id: `${ORDER}:別表第一`, label: "輸出令 別表第一" })}>Specified in 輸出令 別表第一</CiteButton>
-                      ) : (
-                        <>
-                          {goodsLabel && (
-                            <span>
-                              Goods{" "}
-                              <CiteButton onClick={() => openArticle(k.goods!)} className="ml-0.5">
-                                貨物等省令 {goodsLabel}
-                              </CiteButton>
-                            </span>
-                          )}
-                          {techLabel && (
-                            <span>
-                              Technology{" "}
-                              <CiteButton onClick={() => openArticle(k.tech!)} className="ml-0.5">
-                                {techLabel}
-                              </CiteButton>
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </span>
-                  </div>
-                  <Card className="divide-y divide-line overflow-hidden">
-                    {rows.map(({ row, index }) => {
-                      const sub = row.label.replace(new RegExp(`^${escapeRe(row.kou)}の項`), "");
-                      const [text, region] = row.text.split(/(?=〔地域)/);
-                      const nested = row.sub.includes("-");
-                      return (
-                        <div key={index} id={`a1-${index}`} className={cx("flex gap-3 px-4 py-2 transition-colors", flash === index && "bg-amber-soft")}>
-                          <span className={cx("w-[84px] shrink-0 pt-0.5 font-mono text-[11.5px]", nested ? "pl-3 text-fg-3" : "text-fg-2")}>{sub || "—"}</span>
-                          <div className={cx("min-w-0 flex-1 text-[13px] leading-relaxed tracking-wide", nested ? "pl-3 text-fg-2" : "text-fg")}>
-                            {text}
-                            {region && <span className="ml-2 inline-block rounded bg-panel-2 px-1.5 text-[11px] tracking-normal text-fg-3 ring-1 ring-line">{region.replace(/[〔〕]/g, "")}</span>}
+          <div className="grid gap-8 xl:grid-cols-[236px_minmax(0,1fr)]">
+            <nav aria-label="項" className="min-w-0 self-start xl:sticky xl:top-[76px]">
+              <div className="mb-2 hidden px-2.5 text-[13px] font-semibold text-fg-2 xl:block">Jump to 項</div>
+              <div className="xl:hidden">
+                <Select defaultValue="" onChange={(e) => e.target.value && jump(e.target.value)} aria-label="Jump to 項">
+                  <option value="">Jump to 項…</option>
+                  {KOU.map((k) => (
+                    <option key={k.kou} value={k.kou}>
+                      {k.kou}の項 — {k.en}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="hidden flex-col gap-0.5 xl:flex">
+                {KOU.map((k) => (
+                  <a
+                    key={k.kou}
+                    href={`#kou-${k.kou}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      jump(k.kou);
+                    }}
+                    title={`${k.kou}の項 — ${k.en}`}
+                    className="flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13.5px] transition-colors hover:bg-fill-2"
+                  >
+                    <span className="w-8 shrink-0 text-[12.5px] tabular text-fg-3">{k.kou}</span>
+                    <span className="min-w-0 flex-1 truncate">{k.en}</span>
+                    <span className="shrink-0 text-[12px] tabular text-fg-3">{grouped.get(k.kou)?.length ?? ""}</span>
+                  </a>
+                ))}
+              </div>
+            </nav>
+
+            <div className="min-w-0 space-y-10">
+              {KOU.map((k) => {
+                const rows = grouped.get(k.kou) ?? [];
+                if (!rows.length) return null;
+                const goodsLabel = k.goods ? articleLabel(k.goods) : undefined;
+                const techLabel = k.tech ? articleLabel(k.tech) : undefined;
+                return (
+                  <section key={k.kou} id={`kou-${k.kou}`} className="scroll-mt-[76px]">
+                    <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-1">
+                      <h3 className="flex items-baseline gap-2">
+                        <span className="text-[17px] font-semibold tracking-tight">{k.kou}の項</span>
+                        <span className="text-[14px] text-fg-2">{k.en}</span>
+                      </h3>
+                      <span className="flex flex-wrap items-baseline gap-x-3 text-[13px] text-fg-3">
+                        {k.kou === "1" ? (
+                          <CiteButton onClick={() => open({ kind: "section", id: `${ORDER}:別表第一`, label: "輸出令 別表第一" })}>輸出令 別表第一</CiteButton>
+                        ) : (
+                          <>
+                            {goodsLabel && (
+                              <span>
+                                Goods <CiteButton onClick={() => openArticle(k.goods!)}>貨物等省令 {goodsLabel}</CiteButton>
+                              </span>
+                            )}
+                            {techLabel && (
+                              <span>
+                                Technology <CiteButton onClick={() => openArticle(k.tech!)}>{techLabel}</CiteButton>
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    <Card className="k-list overflow-hidden [--inset:92px]">
+                      {rows.map(({ row, index }) => {
+                        const sub = row.label.replace(new RegExp(`^${escapeRe(row.kou)}の項`), "");
+                        const [text, region] = row.text.split(/(?=〔地域)/);
+                        const nested = row.sub.includes("-");
+                        return (
+                          <div key={index} id={`a1-${index}`} className={cx("flex gap-4 px-4 py-2.5 transition-colors duration-500", flash === index && "bg-amber-soft")}>
+                            <span className={cx("w-[60px] shrink-0 pt-px text-[13px] tabular", nested ? "pl-3 text-fg-3" : "text-fg-2")}>{sub || "—"}</span>
+                            <div className={cx("min-w-0 flex-1 text-[14px] leading-relaxed", nested ? "pl-3 text-fg-2" : "text-fg")}>
+                              {text}
+                              {region && <div className="mt-0.5 text-[12.5px] text-fg-3">{region.replace(/[〔〕]/g, "")}</div>}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </Card>
-                </section>
-              );
-            })}
+                        );
+                      })}
+                    </Card>
+                  </section>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -445,14 +463,7 @@ const EXAMPLES = [
 ];
 
 function Applies({ on }: { on: boolean }) {
-  return on ? (
-    <span className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-fg">
-      <Check className="size-3.5 text-orange-text" strokeWidth={2.5} />
-      Applies
-    </span>
-  ) : (
-    <span className="text-fg-3">—</span>
-  );
+  return on ? <Check className="size-4 text-fg" strokeWidth={2.25} aria-label="Applies" /> : <span className="text-fg-3" aria-label="Does not apply">—</span>;
 }
 
 function CatchAll({ derived }: { derived?: JpDerived }) {
@@ -470,19 +481,79 @@ function CatchAll({ derived }: { derived?: JpDerived }) {
   const scope = res ? SCOPE[res.jpCatchAll] : null;
   const cite = (id: string, label: string) => () => open({ kind: "section", id, label });
 
+  const matrix: { dest: ReactNode; goods: ReactNode; wmd: boolean; conv: boolean; inform: boolean; basis: ReactNode }[] = [
+    {
+      dest: (
+        <>
+          Group A <span className="text-fg-3">別表第三</span>
+        </>
+      ),
+      goods: "All 16の項 goods",
+      wmd: false,
+      conv: false,
+      inform: true,
+      basis: (
+        <>
+          <CiteButton onClick={cite(`${ORDER}:1`, "輸出令 第1条")}>第1条第3項</CiteButton>
+          <span className="text-fg-3"> · </span>
+          <CiteButton onClick={cite(`${ORDER}:4`, "輸出令 第4条")}>第4条第2項第3号</CiteButton>
+        </>
+      ),
+    },
+    {
+      dest: (
+        <>
+          UN arms embargo <span className="text-fg-3">別表第三の二</span>
+        </>
+      ),
+      goods: "All 16の項 goods",
+      wmd: true,
+      conv: true,
+      inform: true,
+      basis: <CiteButton onClick={cite(`${ORDER}:4`, "輸出令 第4条")}>第4条第1項第3号・第4号</CiteButton>,
+    },
+    {
+      dest: (
+        <>
+          All other destinations <span className="text-fg-3">一般国</span>
+        </>
+      ),
+      goods: (
+        <>
+          16の項（1）<span className="block text-[12.5px] text-fg-3">HS-designated sensitive goods</span>
+        </>
+      ),
+      wmd: true,
+      conv: true,
+      inform: true,
+      basis: <CiteButton onClick={cite(`${ORDER}:4`, "輸出令 第4条")}>第4条第1項第3号</CiteButton>,
+    },
+    {
+      dest: <span className="text-fg-3">All other destinations</span>,
+      goods: (
+        <>
+          16の項（2）<span className="block text-[12.5px] text-fg-3">Other goods in the listed HS chapters</span>
+        </>
+      ),
+      wmd: true,
+      conv: false,
+      inform: true,
+      basis: <CiteButton onClick={cite(`${ORDER}:4`, "輸出令 第4条")}>第4条第1項第4号</CiteButton>,
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader title="HS code check" subtitle="Which part of 16の項 an HS code falls under, and whether it appears on the US Russia/Belarus HTS lists" />
-        <div className="grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
-          <div className="border-b border-line p-4 lg:border-b-0 lg:border-r">
+    <div className="space-y-12">
+      <Section title="Check an HS code" description="Which part of 16の項 the code falls under, and whether it is on the US Russia and Belarus HTS lists.">
+        <Card>
+          <div className="px-4 py-4">
             <form onSubmit={submit} className="flex gap-2">
-              <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="HS code, e.g. 8542.31" inputMode="numeric" className="max-w-xs font-mono" aria-label="HS code" />
+              <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="e.g. 8542.31" inputMode="numeric" className="w-56 font-mono" aria-label="HS code" />
               <Button type="submit" variant="primary" disabled={!input.trim()} loading={hs.isFetching}>
                 Check
               </Button>
             </form>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11.5px] text-fg-3">
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-fg-3">
               Try
               {EXAMPLES.map((x) => (
                 <button
@@ -492,339 +563,247 @@ function CatchAll({ derived }: { derived?: JpDerived }) {
                     setInput(x.code);
                     setCode(x.code);
                   }}
-                  className="rounded-md bg-panel-2 px-1.5 py-0.5 ring-1 ring-line hover:text-fg hover:ring-line-strong"
+                  className="text-accent-text hover:underline"
                 >
-                  <span className="font-mono">{x.code}</span> {x.label}
+                  <span className="font-mono text-[12.5px]">{x.code}</span> {x.label}
                 </button>
               ))}
             </div>
-
-            {!digits ? (
-              <p className="mt-5 text-[12.5px] leading-relaxed text-fg-3">
-                16の項 covers goods not listed in 1–15の項 whose HS code falls in the chapters below. Enter four to ten digits; codes are matched by prefix against 輸出令別表第一16の項 and
-                貨物等省令 第十四条の二.
-              </p>
-            ) : hs.isError ? (
-              <p className="mt-5 text-[12.5px] text-red-text">{(hs.error as Error).message}</p>
-            ) : !res || !scope ? (
-              <div className="mt-5 space-y-2">
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4" />
-              </div>
-            ) : (
-              <div className="mt-5 animate-in">
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <span className="font-mono text-[13px] text-fg-2">{fmtHs(res.code)}</span>
-                  <Badge tone={scope.tone} dot>
-                    {scope.title}
-                  </Badge>
-                </div>
-                <div className="mt-1.5 text-[12.5px] text-fg-3">{scope.sub}</div>
-                {scope.text && <p className="mt-2 text-[13px] leading-relaxed text-fg-2">{scope.text}</p>}
-                {(res.jpCatchAll === "16-1" || res.jpCatchAll === "16-2") && (
-                  <div className="mt-3 overflow-hidden rounded-lg border border-line text-[12.5px]">
-                    {[
-                      { d: "Group A 別表第三", r: "METI notification only" },
-                      { d: "UN arms embargo 別表第三の二", r: "WMD + conventional use / end user · notification" },
-                      { d: "Other destinations", r: res.jpCatchAll === "16-1" ? "WMD + conventional use / end user · notification" : "WMD use / end user · notification" },
-                    ].map((x) => (
-                      <div key={x.d} className="flex gap-3 border-t border-line px-3 py-1.5 first:border-0">
-                        <span className="w-[190px] shrink-0 text-fg-3">{x.d}</span>
-                        <span className="text-fg">{x.r}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
-          <div className="p-4">
-            <div className="flex items-center justify-between gap-2">
-              <SectionLabel>US EAR — HTS-based lists (Part 746)</SectionLabel>
-            </div>
-            <div className="mt-2 overflow-hidden rounded-lg border border-line">
-              {RU_SUPPS.map((s) => {
-                const on = res?.russia[s.key];
-                return (
-                  <div key={s.key} className="flex items-center gap-3 border-t border-line px-3 py-2 first:border-0">
-                    <span className={cx("size-2 shrink-0 rounded-full", !res ? "bg-panel-3" : on ? "bg-orange" : "bg-transparent ring-[1.5px] ring-inset ring-line-strong")} />
-                    <div className="min-w-0 flex-1">
-                      <CiteButton onClick={cite(s.id, `15 CFR ${s.id.replace("Supp.", "Supp. No.")}`)} className="font-medium">
-                        {s.label} to Part 746
-                      </CiteButton>
-                      <div className="truncate text-[11.5px] text-fg-3">{s.text}</div>
+          {digits && (
+            <div className="grid border-t border-line lg:grid-cols-2">
+              <div className="px-4 py-4">
+                <div className="text-[13px] font-semibold text-fg-2">Japan — 16の項</div>
+                {hs.isError ? (
+                  <p className="mt-2 text-[13.5px] text-red-text">{(hs.error as Error).message}</p>
+                ) : !res || !scope ? (
+                  <div className="mt-3 space-y-2">
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-4" />
+                  </div>
+                ) : (
+                  <div className="mt-2 animate-in">
+                    <div className="flex items-center gap-2">
+                      <ToneDot tone={scope.tone} className="size-2.5" />
+                      <span className="text-[17px] font-semibold tracking-tight">{scope.title}</span>
+                      <span className="font-mono text-[13px] text-fg-3">{fmtHs(res.code)}</span>
                     </div>
-                    <span className={cx("text-[12px]", on ? "font-medium text-orange-text" : "text-fg-3")}>{!res ? "" : on ? "Listed" : "Not listed"}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="mt-2 text-[11.5px] leading-relaxed text-fg-3">
-              Matched on six-digit HTS prefixes. A listed code creates an EAR license requirement for Russia and Belarus (and, for Supp. No. 7, Iran and the occupied regions of Ukraine) when the item
-              is subject to the EAR — independent of its ECCN.
-            </p>
-          </div>
-        </div>
-      </Card>
-
-      <Card>
-        <CardHeader title="What the catch-all requires, by destination" subtitle="輸出令 第1条第3項 and 第4条 — who must check use and end user, and when METI notification applies" />
-        <div className="scroll-thin overflow-x-auto">
-          <table className="w-full min-w-[860px] text-[13px]">
-            <thead>
-              <tr className="border-b border-line bg-panel-2/60 text-left text-[11.5px] font-medium text-fg-3">
-                <th className="px-4 py-2 font-medium">Destination</th>
-                <th className="px-4 py-2 font-medium">Goods</th>
-                <th className="px-4 py-2 font-medium">
-                  WMD — use & end user
-                  <div className="font-normal">核兵器等</div>
-                </th>
-                <th className="px-4 py-2 font-medium">
-                  Conventional — use & end user
-                  <div className="font-normal">通常兵器</div>
-                </th>
-                <th className="px-4 py-2 font-medium">
-                  METI notification
-                  <div className="font-normal">インフォーム</div>
-                </th>
-                <th className="px-4 py-2 font-medium">Basis</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              <tr>
-                <td className="px-4 py-3 align-top">
-                  <div className="font-medium">Group A</div>
-                  <div className="text-[12px] text-fg-3">別表第三</div>
-                </td>
-                <td className="px-4 py-3 align-top text-fg-2">All 16の項 goods</td>
-                <td className="px-4 py-3 align-top">
-                  <Applies on={false} />
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <Applies on={false} />
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <Applies on />
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <CiteButton onClick={cite(`${ORDER}:1`, "輸出令 第1条")}>第1条第3項</CiteButton>
-                  <span className="text-fg-3"> · </span>
-                  <CiteButton onClick={cite(`${ORDER}:4`, "輸出令 第4条")}>第4条第2項第3号</CiteButton>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 align-top">
-                  <div className="font-medium">UN arms embargo</div>
-                  <div className="text-[12px] text-fg-3">別表第三の二</div>
-                </td>
-                <td className="px-4 py-3 align-top text-fg-2">All 16の項 goods</td>
-                <td className="px-4 py-3 align-top">
-                  <Applies on />
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <Applies on />
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <Applies on />
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <CiteButton onClick={cite(`${ORDER}:4`, "輸出令 第4条")}>第4条第1項第3号・第4号</CiteButton>
-                </td>
-              </tr>
-              <tr>
-                <td rowSpan={2} className="border-r border-line px-4 py-3 align-top">
-                  <div className="font-medium">All other destinations</div>
-                  <div className="text-[12px] text-fg-3">一般国</div>
-                </td>
-                <td className="px-4 py-3 align-top text-fg-2">
-                  16の項（1）
-                  <div className="text-[12px] text-fg-3">HS-designated sensitive goods</div>
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <Applies on />
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <Applies on />
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <Applies on />
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <CiteButton onClick={cite(`${ORDER}:4`, "輸出令 第4条")}>第4条第1項第3号</CiteButton>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 align-top text-fg-2">
-                  16の項（2）
-                  <div className="text-[12px] text-fg-3">Other goods in the listed HS chapters</div>
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <Applies on />
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <Applies on={false} />
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <Applies on />
-                </td>
-                <td className="px-4 py-3 align-top">
-                  <CiteButton onClick={cite(`${ORDER}:4`, "輸出令 第4条")}>第4条第1項第4号</CiteButton>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div className="border-t border-line px-4 py-3 text-[12px] leading-relaxed text-fg-3">
-          Use / end-user requirements (客観要件): the exporter learns from the contract, documents or the importer that the goods will be used for, or the end user develops or developed, such weapons —
-          unless use and terms make it clear they will not be (
-          <CiteButton onClick={cite(WMD_ORD, "核兵器等おそれ省令")}>核兵器等おそれ省令</CiteButton>,{" "}
-          <CiteButton onClick={cite(CONV_ORD, "通常兵器おそれ省令")}>通常兵器おそれ省令</CiteButton>). Notification (インフォーム要件) means METI has told the exporter to apply for a license.
-        </div>
-      </Card>
-
-      <Card>
-        <CardHeader title="Scope of 16の項" subtitle="Derived from 輸出令別表第一16の項 and 貨物等省令 第十四条の二 at the last sync" />
-        {!derived ? (
-          <div className="space-y-2 p-4">
-            <Skeleton className="h-4" />
-            <Skeleton className="h-4 w-2/3" />
-          </div>
-        ) : (
-          <div className="divide-y divide-line text-[12.5px]">
-            <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row">
-              <div className="w-48 shrink-0">
-                <div className="font-medium">16の項（1）</div>
-                <div className="text-fg-3">HS headings / subheadings</div>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap gap-1">
-                  {derived.catchAll16_1.include.map((h) => (
-                    <span key={h} className="rounded bg-panel-2 px-1.5 py-0.5 font-mono text-[11.5px] text-fg ring-1 ring-line">
-                      {fmtHs(h)}
-                    </span>
-                  ))}
-                </div>
-                {derived.catchAll16_1.exclude.length > 0 && (
-                  <div className="mt-1.5 text-fg-3">
-                    Excluding{" "}
-                    {derived.catchAll16_1.exclude.map((h, i) => (
-                      <span key={h}>
-                        {i > 0 && ", "}
-                        <span className="font-mono text-fg-2">{fmtHs(h)}</span>
-                      </span>
-                    ))}
+                    <div className="mt-0.5 text-[13px] text-fg-3">{scope.sub}</div>
+                    {scope.text && <p className="mt-2 text-[13.5px] leading-relaxed text-fg-2">{scope.text}</p>}
+                    {(res.jpCatchAll === "16-1" || res.jpCatchAll === "16-2") && (
+                      <div className="k-list mt-3 border-y border-line text-[13px] [--inset:0px]">
+                        {[
+                          { d: "Group A 別表第三", r: "METI notification only" },
+                          { d: "UN arms embargo 別表第三の二", r: "WMD + conventional use / end user · notification" },
+                          { d: "Other destinations", r: res.jpCatchAll === "16-1" ? "WMD + conventional use / end user · notification" : "WMD use / end user · notification" },
+                        ].map((x) => (
+                          <div key={x.d} className="flex gap-3 py-2">
+                            <span className="w-[210px] shrink-0 text-fg-2">{x.d}</span>
+                            <span>{x.r}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            </div>
-            <div className="flex flex-col gap-2 px-4 py-3 sm:flex-row">
-              <div className="w-48 shrink-0">
-                <div className="font-medium">16の項（2）</div>
-                <div className="text-fg-3">HS chapters</div>
+              <div className="border-line px-4 py-4 max-lg:border-t lg:border-l">
+                <div className="text-[13px] font-semibold text-fg-2">United States — HTS lists in Part 746</div>
+                <div className="k-list mt-2 [--inset:20px]">
+                  {RU_SUPPS.map((s) => {
+                    const on = res?.russia[s.key];
+                    return (
+                      <div key={s.key} className="flex items-center gap-3 py-2">
+                        <ToneDot tone={!res ? "neutral" : on ? "orange" : "neutral"} className={cx(!on && "opacity-50")} />
+                        <div className="min-w-0 flex-1">
+                          <CiteButton onClick={cite(s.id, `15 CFR ${s.id.replace("Supp.", "Supp. No.")}`)}>{s.label} to Part 746</CiteButton>
+                          <div className="truncate text-[12.5px] text-fg-3">{s.text}</div>
+                        </div>
+                        <span className={cx("text-[13px]", on ? "font-medium" : "text-fg-3")}>{!res ? "" : on ? "Listed" : "Not listed"}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[12.5px] leading-relaxed text-fg-3">Matched on six-digit HTS prefixes. A listed code needs an EAR license to Russia and Belarus, whatever its ECCN.</p>
               </div>
-              <div className="min-w-0 flex-1 font-mono text-[12px] text-fg">{chapterRuns(derived.catchAll16_2Chapters)}</div>
             </div>
-            <div className="px-4 py-2.5 text-[11.5px] text-fg-3">Goods listed in 1–15の項 are excluded from 16の項 — list control applies to them instead.</div>
+          )}
+        </Card>
+      </Section>
+
+      <Section title="What the catch-all requires" description="Who must check use and end user, and when METI notification applies — 輸出令 第1条第3項 and 第4条.">
+        <Card className="overflow-hidden">
+          <div className="scroll-thin overflow-x-auto">
+            <table className="w-full min-w-[820px] text-[13.5px]">
+              <thead>
+                <tr className="border-b border-line text-left text-[12.5px] text-fg-3">
+                  <th className="px-4 py-2.5 font-medium">Destination</th>
+                  <th className="px-4 py-2.5 font-medium">Goods</th>
+                  <th className="px-4 py-2.5 font-medium">WMD use / end user</th>
+                  <th className="px-4 py-2.5 font-medium">Conventional use / end user</th>
+                  <th className="px-4 py-2.5 font-medium">METI notification</th>
+                  <th className="px-4 py-2.5 font-medium">Basis</th>
+                </tr>
+              </thead>
+              <tbody>
+                {matrix.map((m, i) => (
+                  <tr key={i} className={cx(i > 0 && "border-t border-line")}>
+                    <td className="px-4 py-3 align-top">{m.dest}</td>
+                    <td className="px-4 py-3 align-top text-fg-2">{m.goods}</td>
+                    <td className="px-4 py-3 align-top">
+                      <Applies on={m.wmd} />
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Applies on={m.conv} />
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Applies on={m.inform} />
+                    </td>
+                    <td className="px-4 py-3 align-top">{m.basis}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </Card>
+          <div className="border-t border-line">
+            <Disclosure summary="What “use / end-user checks” and “notification” mean">
+              Use / end-user requirements (客観要件): the exporter learns from the contract, documents or the importer that the goods will be used for, or the end user develops or developed, such
+              weapons — unless use and terms make it clear they will not be (<CiteButton onClick={cite(WMD_ORD, "核兵器等おそれ省令")}>核兵器等おそれ省令</CiteButton>,{" "}
+              <CiteButton onClick={cite(CONV_ORD, "通常兵器おそれ省令")}>通常兵器おそれ省令</CiteButton>). Notification (インフォーム要件) means METI has told the exporter to apply for a license.
+            </Disclosure>
+          </div>
+        </Card>
+      </Section>
+
+      <Section title="Scope of 16の項" description="Derived from 輸出令 別表第一 16の項 and 貨物等省令 第十四条の二 at the last sync. Goods listed in 1–15の項 are excluded.">
+        <Card className="k-list">
+          {!derived ? (
+            <div className="space-y-2 p-4">
+              <Skeleton className="h-4" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:gap-4">
+                <div className="w-44 shrink-0">
+                  <div className="text-[14px] font-medium">16の項（1）</div>
+                  <div className="text-[12.5px] text-fg-3">HS headings and subheadings</div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-mono text-[12.5px] leading-[1.9] text-fg">{derived.catchAll16_1.include.map(fmtHs).join("  ")}</div>
+                  {derived.catchAll16_1.exclude.length > 0 && <div className="mt-1 text-[13px] text-fg-3">Excluding {derived.catchAll16_1.exclude.map(fmtHs).join(", ")}</div>}
+                </div>
+              </div>
+              <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:gap-4">
+                <div className="w-44 shrink-0">
+                  <div className="text-[14px] font-medium">16の項（2）</div>
+                  <div className="text-[12.5px] text-fg-3">HS chapters</div>
+                </div>
+                <div className="min-w-0 flex-1 font-mono text-[12.5px] leading-[1.9]">{chapterRuns(derived.catchAll16_2Chapters)}</div>
+              </div>
+            </>
+          )}
+        </Card>
+      </Section>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// (c) Country lists
+// (c) Destination lists
 
 function CountryLists({ lists, loading }: { lists?: JpCountryLists; loading: boolean }) {
   const open = useRegSheet();
   if (loading || !lists)
     return (
-      <div className="grid gap-6 lg:grid-cols-2">
-        {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-48 rounded-xl" />
+      <div className="space-y-8">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-24" />
+          </div>
         ))}
       </div>
     );
-  const cards: { key: keyof Pick<JpCountryLists, "groupA" | "unArmsEmbargo" | "concern" | "russiaDiversion">; ja: string; en: string; tone: Tone; text: ReactNode }[] = [
+  const cards: { key: keyof Pick<JpCountryLists, "groupA" | "unArmsEmbargo" | "concern" | "russiaDiversion">; ja: string; en: string; text: string }[] = [
     {
       key: "groupA",
       ja: "別表第三",
-      en: "Group A (グループA)",
-      tone: "green",
-      text: "The 16の項 destination column excludes Group A, so the catch-all applies only when METI informs the exporter (輸出令 第1条第3項, 第4条第2項第3号).",
+      en: "Group A",
+      text: "The catch-all applies only when METI informs the exporter (輸出令 第1条第3項, 第4条第2項第3号).",
     },
     {
       key: "unArmsEmbargo",
       ja: "別表第三の二",
-      en: "UN arms embargo destinations (国連武器禁輸国・地域)",
-      tone: "orange",
+      en: "UN arms embargo destinations",
       text: "Conventional-weapons use / end-user checks extend to all 16の項 goods (輸出令 第4条第1項第4号).",
     },
     {
       key: "concern",
       ja: "別表第四",
-      en: "Concern countries (懸念国)",
-      tone: "red",
-      text: "The small-value exception (少額特例) is unavailable for these destinations (輸出令 第4条第1項第5号).",
+      en: "Concern countries",
+      text: "The small-value exception (少額特例) is not available (輸出令 第4条第1項第5号).",
     },
     {
       key: "russiaDiversion",
       ja: "別表第二の四",
       en: "Russia-diversion destinations",
-      tone: "amber",
       text: "Export approval for 別表第二の三 goods in transactions with persons designated by METI notice (輸出令 第2条第1項第1号の8).",
     },
   ];
   return (
-    <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-2">
-        {cards.map((c) => (
-          <Card key={c.key} className="flex flex-col">
-            <CardHeader
-              title={
-                <span className="flex items-center gap-2">
-                  {c.ja}
-                  <Badge tone={c.tone}>{lists[c.key].length}</Badge>
-                </span>
-              }
-              subtitle={c.en}
-              actions={<CiteButton onClick={() => open({ kind: "section", id: `${ORDER}:${c.ja}`, label: `輸出令 ${c.ja}` })}>Open text</CiteButton>}
-            />
-            <div className="flex-1 px-4 py-3">
-              <p className="text-[12.5px] leading-relaxed text-fg-2">{c.text}</p>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {lists[c.key].map((iso) => (
-                  <Link
-                    key={iso}
-                    to={`/regulations/countries/${iso}`}
-                    className="inline-flex h-6 items-center rounded-md bg-panel px-1.5 text-[12px] ring-1 ring-line transition-colors hover:bg-panel-2 hover:ring-line-strong"
-                  >
-                    <CountryName iso2={iso} />
-                  </Link>
-                ))}
-              </div>
+    <div className="space-y-12">
+      {cards.map((c) => (
+        <Section
+          key={c.key}
+          title={
+            <>
+              {c.en} <span className="font-normal text-fg-2">{c.ja}</span> <span className="text-[14px] font-normal tabular text-fg-3">{lists[c.key].length}</span>
+            </>
+          }
+          description={c.text}
+          actions={<CiteButton onClick={() => open({ kind: "section", id: `${ORDER}:${c.ja}`, label: `輸出令 ${c.ja}` })}>輸出令 {c.ja}</CiteButton>}
+        >
+          <Card>
+            <div className="grid grid-cols-2 gap-x-4 px-2 py-2 sm:grid-cols-3 lg:grid-cols-4">
+              {lists[c.key].map((iso) => (
+                <Link key={iso} to={`/regulations/countries/${iso}`} className="truncate rounded-lg px-2 py-1.5 text-[14px] transition-colors hover:bg-fill-2">
+                  <CountryName iso2={iso} withCode={false} />
+                </Link>
+              ))}
             </div>
-            {lists.raw[c.ja] && <div className="border-t border-line px-4 py-2.5 text-[11.5px] leading-relaxed tracking-wide text-fg-3">{lists.raw[c.ja]}</div>}
+            {lists.raw[c.ja] && (
+              <div className="border-t border-line">
+                <Disclosure summary={`Text of ${c.ja}`}>
+                  <span className="tracking-[0.02em]">{lists.raw[c.ja]}</span>
+                </Disclosure>
+              </div>
+            )}
           </Card>
-        ))}
-      </div>
+        </Section>
+      ))}
 
-      <Card>
-        <CardHeader
-          title="別表第三の三"
-          subtitle="Goods with a ¥50,000 small-value threshold instead of ¥1,000,000 (輸出令 第4条第1項第5号)"
-          actions={<CiteButton onClick={() => open({ kind: "section", id: `${ORDER}:別表第三の三`, label: "輸出令 別表第三の三" })}>Open text</CiteButton>}
-        />
-        <div className="reg-text px-4 py-3 tracking-wide text-fg-2">{lists.appendix3_3 || <span className="text-fg-3">Not available in the local data.</span>}</div>
-      </Card>
+      <Section
+        title={
+          <>
+            Low small-value threshold <span className="font-normal text-fg-2">別表第三の三</span>
+          </>
+        }
+        description="Goods whose small-value exception limit is ¥50,000 instead of ¥1,000,000 (輸出令 第4条第1項第5号)."
+        actions={<CiteButton onClick={() => open({ kind: "section", id: `${ORDER}:別表第三の三`, label: "輸出令 別表第三の三" })}>輸出令 別表第三の三</CiteButton>}
+      >
+        <Card>
+          <div className="px-4 py-3.5 text-[14px] leading-[1.8] tracking-[0.02em]">{lists.appendix3_3 || <span className="text-fg-3">Not available in the local data.</span>}</div>
+        </Card>
+      </Section>
 
-      <div className="text-[11.5px] text-fg-3">
+      <p className="px-1 text-[12.5px] text-fg-3">
         Source: {lists.stamp.source}, as revised to {fmtDate(lists.stamp.asOf)}.{" "}
         <a href={lists.stamp.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 hover:text-fg">
           e-Gov <ExternalLink className="size-3" />
         </a>
-      </div>
+      </p>
     </div>
   );
 }

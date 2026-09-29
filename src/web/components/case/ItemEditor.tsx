@@ -1,15 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, ChevronDown, Sparkles, Trash2 } from "lucide-react";
+import { BookOpen, ChevronDown, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Case, FdpInfo, Item } from "../../lib/api.ts";
 import { api } from "../../lib/api.ts";
 import type { ItemAssessment } from "@/shared/assessment.ts";
 import { cx } from "../../lib/format.ts";
-import { AnswerToggle, Badge, Field, IconButton, Input, OutcomePill, Segmented, Select, Textarea } from "../ui/index.tsx";
+import { AnswerToggle, Card, Field, IconButton, Input, OutcomeDot, Segmented, Select, Textarea } from "../ui/index.tsx";
 import { CountryPicker } from "../CountryPicker.tsx";
 import { useRegSheet } from "../RegSheet.tsx";
 import { EccnInput, KouPicker } from "./pickers.tsx";
+import { ITEM_DATA } from "@/shared/progress.ts";
 import { CN_MATERIALS } from "@/engine/cn/measures.ts";
 
 const CURRENCIES = ["USD", "JPY", "EUR", "CNY", "GBP", "KRW", "TWD"] as const;
@@ -52,25 +53,29 @@ export function ItemEditor({
     enabled: hs.replace(/\D/g, "").length >= 4,
   });
   const russiaScope = ["RU", "BY"].includes(c.destination);
+  const LAW: Record<string, string> = { JP: "Japan", US: "United States", CN: "China" };
+  const missing = assessments.flatMap(({ jurisdiction, a }) =>
+    (a?.findings ?? []).filter((f) => f.status === "incomplete" && ITEM_DATA.has(f.id)).map((f) => ({ key: `${jurisdiction}.${f.id}`, law: LAW[jurisdiction] ?? jurisdiction, title: f.title })),
+  );
 
   return (
-    <div className="rounded-xl border border-line bg-panel shadow-card">
+    <Card>
       <div className="flex items-center gap-3 px-4 py-3">
-        <button onClick={() => setOpen((o) => !o)} className="flex size-6 items-center justify-center rounded-md text-fg-3 hover:bg-panel-2" aria-label={open ? "Collapse" : "Expand"}>
+        <button onClick={() => setOpen((o) => !o)} className="flex size-7 items-center justify-center rounded-full text-fg-3 hover:bg-fill" aria-label={open ? "Collapse" : "Expand"}>
           <ChevronDown className={cx("size-4 transition-transform", !open && "-rotate-90")} />
         </button>
-        <span className="font-mono text-[11.5px] text-fg-3">#{index + 1}</span>
+        <span className="text-[13px] tabular text-fg-3">{index + 1}</span>
         <input
           value={item.name}
           onChange={(e) => onChange((i) => void (i.name = e.target.value))}
-          placeholder="Item name"
-          className="min-w-0 flex-1 bg-transparent text-[14px] font-medium outline-none placeholder:text-fg-3"
+          placeholder="What is it? e.g. Spectrum analyzer, 26.5 GHz"
+          className="min-w-0 flex-1 rounded-md bg-transparent text-[15px] font-semibold tracking-tight outline-none placeholder:font-normal placeholder:text-fg-3 focus:bg-fill-2"
         />
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-3">
           {assessments.map(({ jurisdiction, a }) => a && a.outcome !== "not_applicable" && (
-            <span key={jurisdiction} className="flex items-center gap-1">
-              <span className="text-[10.5px] font-semibold text-fg-3">{jurisdiction}</span>
-              <OutcomePill outcome={a.outcome} size="sm" />
+            <span key={jurisdiction} className="flex items-center gap-1.5 text-[12px] font-medium text-fg-3" title={`${jurisdiction}: ${a.summary}`}>
+              <OutcomeDot outcome={a.outcome} />
+              {jurisdiction}
             </span>
           ))}
         </div>
@@ -79,8 +84,21 @@ export function ItemEditor({
         </IconButton>
       </div>
       {open && (
-        <div className="border-t border-line px-4 pb-4 pt-3">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="border-t border-line px-5 pb-5 pt-4">
+          {missing.length > 0 && (
+            <div className="mb-5 rounded-xl bg-accent-soft px-4 py-3">
+              <div className="text-[13px] font-semibold text-accent-text">To complete this item</div>
+              <ul className="mt-1 space-y-0.5 text-[13px] leading-snug text-fg">
+                {missing.map((m) => (
+                  <li key={m.key} className="flex gap-2">
+                    <span className="w-24 shrink-0 text-fg-2">{m.law}</span>
+                    <span>{m.title}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-4 md:grid-cols-4">
             <Field label="Model / part no.">
               <Input value={item.model ?? ""} onChange={(e) => onChange((i) => void (i.model = e.target.value))} />
             </Field>
@@ -115,45 +133,56 @@ export function ItemEditor({
               className="col-span-2"
               hint={
                 hsInfo.data ? (
-                  <span className="flex flex-wrap gap-1">
-                    <Badge tone={hsInfo.data.jpCatchAll === "16-1" ? "orange" : hsInfo.data.jpCatchAll === "16-2" ? "blue" : "gray"}>
-                      {hsInfo.data.jpCatchAll === "16-1" ? "JP 16の項（1）sensitive goods" : hsInfo.data.jpCatchAll === "16-2" ? "JP 16の項（2）" : "Outside JP catch-all"}
-                    </Badge>
-                    {(hsInfo.data.russia.supp4 || hsInfo.data.russia.supp5) && <Badge tone={russiaScope ? "red" : "amber"}>{russiaScope ? "EAR99 licence to RU/BY" : "EAR Russia HTS list"} · Supp. {hsInfo.data.russia.supp4 ? "4" : "5"}</Badge>}
-                    {hsInfo.data.russia.supp7 && <Badge tone="amber">EAR Supp. 7 (FDP / Iran)</Badge>}
+                  <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-fg-2">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className={cx("size-1.5 rounded-full", hsInfo.data.jpCatchAll === "16-1" ? "bg-orange" : "bg-fg-3/50")} />
+                      {hsInfo.data.jpCatchAll === "16-1" ? "Japan catch-all 16の項（1）: sensitive goods" : hsInfo.data.jpCatchAll === "16-2" ? "Japan catch-all 16の項（2）" : "Outside Japan’s catch-all"}
+                    </span>
+                    {(hsInfo.data.russia.supp4 || hsInfo.data.russia.supp5) && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className={cx("size-1.5 rounded-full", russiaScope ? "bg-red" : "bg-fg-3/50")} />
+                        {russiaScope ? "License needed to Russia/Belarus even as EAR99" : "On the EAR Russia HTS list"} (Supp. {hsInfo.data.russia.supp4 ? "4" : "5"} to Part 746)
+                      </span>
+                    )}
+                    {hsInfo.data.russia.supp7 && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="size-1.5 rounded-full bg-fg-3/50" />
+                        EAR Supp. 7 (FDP / Iran)
+                      </span>
+                    )}
                   </span>
                 ) : (
-                  "6 digits or more — drives the Japanese catch-all scope and EAR99 sanctions lists"
+                  "Six digits or more. Drives Japan’s catch-all scope and the EAR Russia lists."
                 )
               }
             >
               <Input value={item.hsCode ?? ""} onChange={(e) => onChange((i) => void (i.hsCode = e.target.value))} placeholder="8542.31" className="font-mono" />
             </Field>
           </div>
-          <Field label="Description & key specifications" className="mt-3">
+          <Field label="Description and key specifications" className="mt-4">
             <Textarea rows={2} value={item.description ?? ""} onChange={(e) => onChange((i) => void (i.description = e.target.value))} placeholder="Function, performance parameters, encryption, operating temperature… (used for classification)" />
           </Field>
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="mt-6 flex items-center justify-between gap-3 border-t border-line pt-5">
+            <div className="text-[14px] font-semibold">Classification</div>
+            <Link to={`/classify?case=${c.id}&item=${item.id}`} className="ml-auto text-[13px] font-medium text-accent-text hover:underline">
+              Suggest from the description
+            </Link>
+          </div>
+          <div className="mt-3">
             <Segmented
               value={tab}
               onChange={setTab}
               options={[
-                { value: "jp", label: "Japan — FEFTA" },
-                { value: "us", label: "United States — EAR" },
-                { value: "cn", label: "China — ECL" },
+                { value: "jp", label: "Japan" },
+                { value: "us", label: "United States" },
+                { value: "cn", label: "China" },
               ]}
             />
-            <Link
-              to={`/classify?case=${c.id}&item=${item.id}`}
-              className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium text-accent-text hover:bg-accent-soft"
-            >
-              <Sparkles className="size-3.5" /> Classify with AI
-            </Link>
           </div>
 
           {tab === "us" && (
-            <div className="mt-3 space-y-3 rounded-lg bg-panel-2/60 p-3 ring-1 ring-line">
+            <div className="mt-4 space-y-4">
               <Field label="Relationship to the United States (15 CFR 734.3)">
                 <Segmented
                   value={item.us.origin}
@@ -177,7 +206,7 @@ export function ItemEditor({
                 </div>
               )}
               {(item.us.origin === "foreign_with_us_content" || item.us.origin === "foreign_no_us_content") && fdp && (
-                <div className="rounded-lg bg-panel p-3 ring-1 ring-line">
+                <div className="rounded-xl bg-panel-2 p-4">
                   <div className="flex items-start gap-3">
                     <div className="flex-1 text-[13px]">
                       <div className="font-medium">Foreign Direct Product rules (§734.9)</div>
@@ -186,7 +215,7 @@ export function ItemEditor({
                     <AnswerToggle value={item.us.fdp.gate ?? "unknown"} onChange={(v) => onChange((i) => void (i.us.fdp.gate = v), true)} />
                   </div>
                   {item.us.fdp.gate === "yes" && (
-                    <div className="mt-3 space-y-2 border-t border-line pt-3">
+                    <div className="mt-3 space-y-3 border-t border-line pt-3">
                       {fdp.rules.length === 0 && <div className="text-[12.5px] text-fg-3">No FDP rule reaches this destination from this shipping country.</div>}
                       {fdp.rules.map((r) => (
                         <div key={r.id} className="flex items-start gap-3">
@@ -204,7 +233,7 @@ export function ItemEditor({
                   )}
                 </div>
               )}
-              <div className="grid grid-cols-[1fr_120px_150px] gap-3">
+              <div className="grid grid-cols-[1fr_110px_150px] gap-3">
                 <Field label="ECCN">
                   <EccnInput value={item.us.eccn} onChange={(v) => onChange((i) => void (i.us.eccn = v), true)} />
                 </Field>
@@ -222,8 +251,8 @@ export function ItemEditor({
               <div className="flex items-start gap-2">
                 <Textarea rows={2} value={item.us.classificationBasis ?? ""} onChange={(e) => onChange((i) => void (i.us.classificationBasis = e.target.value))} placeholder="Basis: manufacturer's ECCN statement, CCATS number, internal determination…" className="text-[13px]" />
                 {/^\d[A-E]\d{3}$/.test(item.us.eccn) && (
-                  <button onClick={() => openReg({ kind: "eccn", id: item.us.eccn, paragraph: item.us.paragraph || undefined })} className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium text-fg-2 ring-1 ring-line-strong hover:bg-panel">
-                    <BookOpen className="size-3.5" /> Entry
+                  <button onClick={() => openReg({ kind: "eccn", id: item.us.eccn, paragraph: item.us.paragraph || undefined })} className="inline-flex h-[34px] shrink-0 items-center gap-1.5 rounded-full bg-fill px-3.5 text-[13px] font-medium text-fg hover:bg-panel-3">
+                    <BookOpen className="size-3.5" /> Read entry
                   </button>
                 )}
               </div>
@@ -231,7 +260,7 @@ export function ItemEditor({
           )}
 
           {tab === "cn" && (
-            <div className="mt-3 space-y-3 rounded-lg bg-panel-2/60 p-3 ring-1 ring-line">
+            <div className="mt-4 space-y-4">
               <Field label="China-origin controlled materials in or supplied with this item" hint="Each links to the MOFCOM measure that controls it; status (in force / suspended) is evaluated on the ship date.">
                 <div className="flex flex-wrap gap-1.5">
                   {CN_MATERIALS.map((m) => {
@@ -241,7 +270,7 @@ export function ItemEditor({
                         key={m.id}
                         type="button"
                         onClick={() => onChange((i) => void (i.cn.materials = on ? i.cn.materials.filter((x) => x !== m.id) : [...i.cn.materials, m.id]), true)}
-                        className={cx("h-6 rounded-md px-2 text-[12px] ring-1 ring-inset transition-colors", on ? "bg-orange-soft text-orange-text ring-orange/30" : "bg-panel text-fg-2 ring-line hover:ring-line-strong")}
+                        className={cx("h-7 rounded-full px-3 text-[12.5px] font-medium transition-colors", on ? "bg-fg text-bg" : "bg-fill-2 text-fg-2 hover:bg-fill")}
                         title={`CN ${m.code} · ${m.measure}`}
                       >
                         {m.label}
@@ -256,7 +285,7 @@ export function ItemEditor({
                 </Field>
               )}
               {c.shipFrom === "CN" && (
-                <div className="grid grid-cols-[1fr_160px] gap-3">
+                <div className="grid grid-cols-[1fr_150px] gap-3">
                   <Field label="China's Dual-Use Items Export Control List">
                     <Segmented
                       value={item.cn.listStatus}
@@ -277,7 +306,7 @@ export function ItemEditor({
           )}
 
           {tab === "jp" && (
-            <div className="mt-3 space-y-3 rounded-lg bg-panel-2/60 p-3 ring-1 ring-line">
+            <div className="mt-4 space-y-4">
               <Field label="該非判定 — 輸出令別表第一 1〜15の項">
                 <Segmented
                   value={item.jp.listStatus}
@@ -305,7 +334,7 @@ export function ItemEditor({
                 </Field>
               )}
               {(russiaScope || item.jp.appendix2_3 !== "unknown") && (
-                <div className="flex items-start gap-3 rounded-lg bg-panel p-3 ring-1 ring-line">
+                <div className="flex items-start gap-3 rounded-xl bg-panel-2 p-4">
                   <div className="flex-1 text-[13px]">
                     <div className="font-medium">Russia / Belarus export-approval list (別表第二の三)</div>
                     <div className="text-fg-2">Do the goods fall under 輸出令別表第二の三? List-controlled goods always do.</div>
@@ -318,6 +347,6 @@ export function ItemEditor({
           )}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

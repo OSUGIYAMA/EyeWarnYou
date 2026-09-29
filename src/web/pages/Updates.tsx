@@ -1,30 +1,32 @@
-// Regulatory updates: structural changes detected between consecutive data syncs.
+// Changes: what differs in the regulation data between consecutive data syncs.
 import { useQuery } from "@tanstack/react-query";
 import { History, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Page, useMeta } from "../components/AppShell.tsx";
 import { CountryName } from "../components/CountryPicker.tsx";
-import { Badge, Button, Card, Empty, PageHeader, Segmented, Skeleton } from "../components/ui/index.tsx";
+import { Button, Card, Empty, PageHeader, Section, Segmented, Skeleton, StatusDot, Tooltip } from "../components/ui/index.tsx";
 import { api, type ChangeEntry } from "../lib/api.ts";
-import { cx, fmtDate, LIST_NAMES, relTime, type Tone } from "../lib/format.ts";
+import { cx, fmtDate, LIST_NAMES, relTime } from "../lib/format.ts";
 
-const KINDS: Record<string, { label: string; tone: Tone }> = {
-  ccl: { label: "CCL", tone: "blue" },
-  chart: { label: "Country Chart", tone: "orange" },
-  groups: { label: "Country Groups", tone: "amber" },
-  "jp-countries": { label: "Japan lists", tone: "violet" },
-  screening: { label: "Screening", tone: "gray" },
+const KINDS: Record<string, string> = {
+  ccl: "Control List",
+  chart: "Country Chart",
+  groups: "Country Groups",
+  "jp-countries": "Japan lists",
+  screening: "Screening lists",
 };
 
-const SEVERITY: Record<ChangeEntry["severity"], { dot: string; label: string }> = {
-  high: { dot: "bg-orange", label: "High impact" },
-  medium: { dot: "bg-amber", label: "Medium impact" },
-  low: { dot: "bg-fg-3", label: "Low impact" },
+const SEVERITY: Record<ChangeEntry["severity"], string> = {
+  high: "High impact",
+  medium: "Medium impact",
+  low: "Low impact",
 };
 
 const ECCN_RE = /^\d[A-E]\d{3}$/;
 const ISO_RE = /^[A-Z]{2}$/;
+
+const chip = "inline-flex h-6 items-center rounded-md bg-fill-2 px-1.5 text-[12px] transition-colors";
 
 function Refs({ refs, kind }: { refs: string[]; kind: string }) {
   const [all, setAll] = useState(false);
@@ -35,18 +37,18 @@ function Refs({ refs, kind }: { refs: string[]; kind: string }) {
       const list = r.includes(":") ? r.slice(0, r.indexOf(":")) : "";
       byList.set(list, (byList.get(list) ?? 0) + 1);
     }
+    const lists = [...byList.entries()].filter(([l]) => l);
     return (
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {[...byList.entries()]
-          .filter(([l]) => l)
-          .map(([l, n]) => (
-            <Badge key={l} tone={LIST_NAMES[l]?.tone ?? "gray"} className="whitespace-nowrap">
-              {LIST_NAMES[l]?.name ?? l}
-              <span className="font-normal tabular opacity-75">{n}</span>
-            </Badge>
-          ))}
-        <span className="text-[11.5px] tabular text-fg-3">
-          {refs.length} list entr{refs.length === 1 ? "y" : "ies"} affected
+      <div className="mt-1.5 text-[12.5px] text-fg-2">
+        {lists.map(([l, n], i) => (
+          <span key={l}>
+            {i > 0 && <span className="text-fg-3"> · </span>}
+            {LIST_NAMES[l]?.name ?? l} <span className="tabular">{n}</span>
+          </span>
+        ))}
+        <span className="text-fg-3">
+          {lists.length > 0 && " — "}
+          <span className="tabular">{refs.length}</span> list entr{refs.length === 1 ? "y" : "ies"} affected
         </span>
       </div>
     );
@@ -56,22 +58,22 @@ function Refs({ refs, kind }: { refs: string[]; kind: string }) {
     <div className="mt-2 flex flex-wrap items-center gap-1">
       {shown.map((r) =>
         ECCN_RE.test(r) ? (
-          <Link key={r} to={`/regulations/ccl/${r}`} className="rounded bg-panel-2 px-1.5 py-0.5 font-mono text-[11.5px] text-fg-2 ring-1 ring-line transition-colors hover:text-fg hover:ring-line-strong">
+          <Link key={r} to={`/regulations/ccl/${r}`} className={cx(chip, "font-mono text-fg hover:bg-fill hover:text-accent-text")}>
             {r}
           </Link>
         ) : ISO_RE.test(r) ? (
-          <Link key={r} to={`/regulations/countries/${r}`} className="rounded-md bg-panel px-1.5 py-0.5 text-[12px] ring-1 ring-line transition-colors hover:bg-panel-2 hover:ring-line-strong">
-            <CountryName iso2={r} />
+          <Link key={r} to={`/regulations/countries/${r}`} className={cx(chip, "text-fg hover:bg-fill hover:text-accent-text")}>
+            <CountryName iso2={r} withCode={false} />
           </Link>
         ) : (
-          <span key={r} className="rounded bg-panel-2 px-1.5 py-0.5 font-mono text-[11.5px] text-fg-3 ring-1 ring-line">
+          <span key={r} className={cx(chip, "font-mono text-fg-3")}>
             {r}
           </span>
         ),
       )}
       {refs.length > 12 && (
-        <button type="button" onClick={() => setAll((a) => !a)} className="px-1 text-[12px] font-medium text-accent-text hover:underline">
-          {all ? "Show fewer" : `+${refs.length - 12} more`}
+        <button type="button" onClick={() => setAll((a) => !a)} className="px-1 text-[12.5px] font-medium text-accent-text hover:underline">
+          {all ? "Show fewer" : `${refs.length - 12} more`}
         </button>
       )}
     </div>
@@ -83,18 +85,30 @@ function Detail({ text }: { text: string }) {
   const long = text.length > 260;
   return (
     <div className="mt-0.5">
-      <div className={cx("text-[12.5px] leading-relaxed text-fg-2", long && !open && "line-clamp-2")}>{text}</div>
+      <div className={cx("text-[13px] leading-relaxed text-fg-2", long && !open && "line-clamp-2")}>{text}</div>
       {long && (
-        <button type="button" onClick={() => setOpen((o) => !o)} className="text-[12px] font-medium text-accent-text hover:underline">
-          {open ? "Show less" : "Show all"}
+        <button type="button" onClick={() => setOpen((o) => !o)} className="text-[12.5px] font-medium text-accent-text hover:underline">
+          {open ? "Less" : "More"}
         </button>
       )}
     </div>
   );
 }
 
+/** Severity as a symbol: a warning glyph for high impact, a quiet dot otherwise. */
+function Severity({ s }: { s: ChangeEntry["severity"] }) {
+  return (
+    <Tooltip content={SEVERITY[s]}>
+      <span className="flex h-5 w-4 shrink-0 items-center justify-center" aria-label={SEVERITY[s]} role="img">
+        {s === "high" ? <StatusDot status="flag" className="mt-0" /> : <span className={cx("size-2 rounded-full", s === "medium" ? "bg-amber" : "bg-fg-3/50")} />}
+      </span>
+    </Tooltip>
+  );
+}
+
 export function UpdatesPage() {
   const meta = useMeta();
+  const nav = useNavigate();
   const updates = useQuery({ queryKey: ["updates"], queryFn: () => api.get<ChangeEntry[]>("/updates") });
   const [params, setParams] = useSearchParams();
   const kind = params.get("kind") ?? "all";
@@ -120,45 +134,47 @@ export function UpdatesPage() {
 
   const high = list.filter((u) => u.severity === "high").length;
   const lastSync = meta.data?.manifest?.generatedAt;
+  const toSync = () => nav("/settings#data");
 
   return (
     <Page>
       <PageHeader
-        title="Detected changes"
-        description="Each data sync is compared with the previous snapshot. Changes to the Commerce Control List, the Country Chart, the Country Groups, Japan’s country lists and the screening lists are recorded here."
+        title="Changes"
+        description="What changed in the regulation data at each sync."
         actions={
-          <Link to="/settings#data">
-            <Button icon={<RefreshCw className="size-3.5" />}>Sync data</Button>
-          </Link>
+          list.length > 0 ? (
+            <Button icon={<RefreshCw className="size-3.5" />} onClick={toSync}>
+              Sync data
+            </Button>
+          ) : undefined
         }
       />
 
       {updates.isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" />
+            <Skeleton key={i} className="h-14" />
           ))}
         </div>
       ) : list.length === 0 ? (
         <Card>
           <Empty
-            icon={<History className="size-5" />}
-            title="No changes recorded yet"
+            icon={<History />}
+            title="No changes yet"
             action={
-              <Link to="/settings#data">
-                <Button variant="primary" icon={<RefreshCw className="size-3.5" />}>
-                  Open Settings → Data
-                </Button>
-              </Link>
+              <Button variant="primary" icon={<RefreshCw className="size-3.5" />} onClick={toSync}>
+                Sync data
+              </Button>
             }
           >
-            Updates appear after you run a data sync from Settings → Data. The first sync establishes the baseline; each later sync is compared with it and every difference is listed here.
-            {lastSync && <span className="mt-2 block text-[12px]">Last sync {relTime(lastSync)}.</span>}
+            {lastSync
+              ? `The last sync, ${relTime(lastSync)}, set the baseline. After the next one, every difference in the Control List, Country Chart, Country Groups, Japan’s lists and the screening lists appears here.`
+              : "The first data sync sets the baseline. Each later sync is compared with it, and every difference in the Control List, Country Chart, Country Groups, Japan’s lists and the screening lists appears here."}
           </Empty>
         </Card>
       ) : (
         <>
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
             <Segmented
               value={kind}
               onChange={(v) => setParams(v === "all" ? {} : { kind: v }, { replace: true })}
@@ -166,22 +182,24 @@ export function UpdatesPage() {
                 { value: "all", label: <>All <span className="tabular text-fg-3">{list.length}</span></> },
                 ...Object.entries(KINDS)
                   .filter(([k]) => counts[k])
-                  .map(([k, v]) => ({
+                  .map(([k, label]) => ({
                     value: k,
                     label: (
                       <>
-                        {v.label} <span className="tabular text-fg-3">{counts[k]}</span>
+                        {label} <span className="tabular text-fg-3">{counts[k]}</span>
                       </>
                     ),
                   })),
               ]}
             />
-            <div className="flex items-center gap-3 text-[12px] text-fg-3">
+            <div className="flex items-center gap-1.5 text-[12.5px] text-fg-3">
               {high > 0 && (
-                <span className="flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-orange" />
-                  <span className="tabular">{high}</span> high impact
-                </span>
+                <>
+                  <span className="text-fg-2">
+                    <span className="tabular">{high}</span> high impact
+                  </span>
+                  {lastSync && <span>·</span>}
+                </>
               )}
               {lastSync && <span>Last sync {relTime(lastSync)}</span>}
             </div>
@@ -189,40 +207,28 @@ export function UpdatesPage() {
 
           {days.length === 0 ? (
             <Card>
-              <Empty icon={<History className="size-5" />} title="No changes of this kind">
+              <Empty icon={<History />} title="No changes of this kind">
                 Choose another filter to see the rest.
               </Empty>
             </Card>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-10">
               {days.map(([day, items]) => (
-                <section key={day || "undated"}>
-                  <div className="mb-3 flex items-baseline gap-2">
-                    <h2 className="text-[13.5px] font-semibold tracking-tight">{day ? fmtDate(day) : "Undated"}</h2>
-                    <span className="text-[12px] tabular text-fg-3">
-                      {items.length} change{items.length === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                  <ol className="relative ml-[5px] border-l border-line pl-6">
-                    {items.map((u, i) => {
-                      const k = KINDS[u.kind] ?? { label: u.kind, tone: "gray" as Tone };
-                      return (
-                        <li key={i} className="relative pb-4 last:pb-0">
-                          <span className={cx("absolute -left-[28.5px] top-[18px] size-2 rounded-full ring-4 ring-bg", SEVERITY[u.severity].dot)} title={SEVERITY[u.severity].label} />
-                          <Card className="px-4 py-3">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge tone={k.tone}>{k.label}</Badge>
-                              <span className="text-[13.5px] font-medium">{u.title}</span>
-                              {u.severity === "high" && <span className="text-[11.5px] font-medium text-orange-text">High impact</span>}
-                            </div>
-                            {u.detail && <Detail text={u.detail} />}
-                            {u.refs && u.refs.length > 0 && <Refs refs={u.refs} kind={u.kind} />}
-                          </Card>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </section>
+                <Section key={day || "undated"} title={day ? fmtDate(day) : "Undated"} description={`${items.length} change${items.length === 1 ? "" : "s"}`}>
+                  <Card className="k-list" style={{ ["--inset" as string]: "44px" }}>
+                    {items.map((u, i) => (
+                      <div key={i} className="flex gap-3 px-4 py-3.5">
+                        <Severity s={u.severity} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[14px] font-medium leading-snug">{u.title}</div>
+                          <div className="text-[12.5px] text-fg-3">{KINDS[u.kind] ?? u.kind}</div>
+                          {u.detail && <Detail text={u.detail} />}
+                          {u.refs && u.refs.length > 0 && <Refs refs={u.refs} kind={u.kind} />}
+                        </div>
+                      </div>
+                    ))}
+                  </Card>
+                </Section>
               ))}
             </div>
           )}

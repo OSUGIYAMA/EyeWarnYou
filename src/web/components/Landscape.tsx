@@ -1,10 +1,9 @@
 // Cross-jurisdiction list landscape: how far US, Japanese and Chinese designations agree, and how they evolve.
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useState } from "react";
-import { api } from "../lib/api.ts";
-import { cx, fmtDate, LIST_NAMES } from "../lib/format.ts";
-import { Badge, Card, CardHeader } from "./ui/index.tsx";
+import { fmtDate, LIST_NAMES } from "../lib/format.ts";
+import { Card, Section, Spinner, Tooltip } from "./ui/index.tsx";
 import { RankBars, StackedBars, type ChartSeries } from "./charts.tsx";
 import { CountryName } from "./CountryPicker.tsx";
 
@@ -41,50 +40,46 @@ export function LandscapeView() {
   const d = q.data;
   if (!d || d.status !== "ready")
     return (
-      <Card className="flex items-center gap-3 p-6 text-[13px] text-fg-2">
-        <Loader2 className="size-4 animate-spin text-fg-3" />
-        Matching every designation against the other jurisdictions’ lists — this takes about 20 seconds after each data update.
+      <Card className="flex flex-col items-center px-6 py-14 text-center">
+        <Spinner className="size-5" />
+        <div className="mt-3 text-[15px] font-semibold tracking-tight">Comparing the lists</div>
+        <p className="mt-1 max-w-sm text-[13.5px] text-fg-2">Every designation is matched against the other jurisdictions’ lists. This takes about 20 seconds after each data update.</p>
       </Card>
     );
   const years = d.elByYear.years.filter((y) => y >= "2008");
   const offset = d.elByYear.years.indexOf(years[0]);
   const elSeries = d.elByYear.series.map((s) => ({ ...s, values: s.values.slice(offset) }));
   return (
-    <div className="space-y-6">
-      <p className="max-w-3xl text-[13.5px] text-fg-2">
-        The same entity can be designated by Washington, Tokyo and Beijing for different reasons — or by only one of them. These views compare the lists Kanmon holds, matching names with the screening engine at a score of {d.threshold} or more (strict enough that most matches are the same legal entity; a few will be namesakes). Computed {fmtDate(d.computedAt)}.
-      </p>
-
-      <Card>
-        <CardHeader title="How far do the lists agree?" subtitle="Share of each group of designations that also appears on the other jurisdiction’s lists" />
-        <div className="divide-y divide-line">
+    <div className="space-y-10">
+      <Section title="How far the lists agree" description="The share of each group of designations that another jurisdiction has also listed.">
+        <Card className="k-list overflow-hidden" style={{ ["--inset" as string]: "136px" }}>
           {d.overlap.map((o) => (
-            <OverlapLine key={o.id} o={o} />
+            <Finding key={o.id} o={o} />
           ))}
-        </div>
-      </Card>
+        </Card>
+        <p className="mt-2 px-1 text-[12px] leading-snug text-fg-3">
+          Names matched by the screening engine at a score of {d.threshold} or more — most are the same legal entity, a few may be namesakes. Computed {fmtDate(d.computedAt)}.
+        </p>
+      </Section>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader title="US Entity List — entries by year listed" subtitle="Current entries by the year of their original listing, grouped by address country (entries removed since are not shown)" />
-          <div className="p-4">
+      <div className="grid gap-10 xl:grid-cols-2 xl:gap-8">
+        <Section className="min-w-0" title="US Entity List by year listed" description="Current entries by the year first listed and address country; removed entries are not shown.">
+          <Card className="p-5">
             <StackedBars periods={years} series={elSeries} ariaLabel="US Entity List entries by year of listing and country" />
-          </div>
-        </Card>
-        <Card>
-          <CardHeader title="China’s designations — by quarter and target" subtitle="MOFCOM Control List, Watch List, Unreliable Entity List and countermeasure designations held by Kanmon" />
-          <div className="p-4">
+          </Card>
+        </Section>
+        <Section className="min-w-0" title="China’s designations by quarter" description="MOFCOM Control List, Watch List, Unreliable Entity List and countermeasures, by target.">
+          <Card className="p-5">
             <StackedBars periods={d.cnByQuarter.periods} series={d.cnByQuarter.series} ariaLabel="Chinese designations by quarter and target country" />
-          </div>
-        </Card>
+          </Card>
+        </Section>
       </div>
 
-      <Card>
-        <CardHeader title="METI End User List — by country" subtitle="Number of listed entities; concern types shown as counts" />
-        <div className="p-4">
+      <Section title="METI End User List by country" description="Listed entities per country, with the most common concern types.">
+        <Card className="px-5 py-2">
           <RankBars
             rows={d.metiByCountry.map((r) => ({
-              label: r.iso2 === "—" ? "Unspecified" : <CountryName iso2={r.iso2} />,
+              label: r.iso2 === "—" ? "Unspecified" : <CountryName iso2={r.iso2} withCode={false} />,
               value: r.total,
               note: Object.entries(r.codes)
                 .sort((a, b) => b[1] - a[1])
@@ -93,54 +88,69 @@ export function LandscapeView() {
                 .join(" · "),
             }))}
           />
-        </div>
-      </Card>
+        </Card>
+      </Section>
     </div>
   );
 }
 
-function OverlapLine({ o }: { o: OverlapRow }) {
+const listName = (l: string) => LIST_NAMES[l]?.name ?? l;
+
+function joinAnd(parts: string[]): string {
+  return parts.length <= 1 ? parts.join("") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+/** One headline finding: the share as a large number, one sentence saying what it means, matches on demand. */
+function Finding({ o }: { o: OverlapRow }) {
   const [open, setOpen] = useState(false);
   const pct = o.n ? (o.anyHit / o.n) * 100 : 0;
+  const noun = o.sourceNote.replace(/^all /, "");
+  const lists = Object.entries(o.byList)
+    .sort((a, b) => b[1] - a[1])
+    .map(([l, n], _, all) => (all.length > 1 ? `${listName(l)} (${n.toLocaleString()})` : listName(l)));
+  const caption =
+    o.anyHit === 0
+      ? `None of the ${o.n.toLocaleString()} ${noun} appear on the other jurisdictions’ lists.`
+      : `${o.anyHit.toLocaleString()} of ${o.n.toLocaleString()} ${noun} are also on the ${joinAnd(lists)}.`;
   return (
-    <div className="px-4 py-3">
-      <button onClick={() => setOpen((x) => !x)} className="grid w-full grid-cols-[minmax(0,1fr)_220px_110px] items-center gap-4 text-left">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-[13.5px] font-medium">
-            <ChevronDown className={cx("size-3.5 text-fg-3 transition-transform", !open && "-rotate-90")} />
-            {o.label}
-          </div>
-          <div className="pl-5 text-[12px] text-fg-3">
-            {o.sourceNote} · also on{" "}
-            {Object.entries(o.byList)
-              .sort((a, b) => b[1] - a[1])
-              .map(([l, n]) => `${LIST_NAMES[l]?.name ?? l} (${n})`)
-              .join(", ") || "none"}
-          </div>
-        </div>
-        <div className="h-2.5 rounded-r-[4px] bg-panel-2">
-          <div className="h-full rounded-r-[4px]" style={{ width: `${Math.max(pct, 0.5)}%`, background: "var(--seq-1)" }} />
-        </div>
-        <div className="text-right text-[13px] tabular">
-          <span className="font-semibold">{pct.toFixed(pct < 10 ? 1 : 0)}%</span>
-          <span className="ml-1.5 text-[12px] text-fg-3">
-            {o.anyHit.toLocaleString()} / {o.n.toLocaleString()}
-          </span>
-        </div>
-      </button>
-      {open && o.examples.length > 0 && (
-        <div className="mt-2 space-y-1 pl-5 text-[12.5px]">
-          {o.examples.map((e, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <span className="truncate">{e.name}</span>
-              <span className="text-fg-3">→</span>
-              <span className="truncate text-fg-2">{e.matched}</span>
-              <Badge tone={LIST_NAMES[e.list]?.tone ?? "gray"}>{e.list}</Badge>
-              <span className="font-mono text-[11.5px] text-fg-3">{Math.round(e.score)}</span>
+    <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-x-6 px-5 py-4">
+      <div className="text-[32px] font-semibold leading-none tracking-[-0.02em]">
+        {pct.toFixed(pct > 0 && pct < 10 ? 1 : 0)}
+        <span className="ml-0.5 text-[20px] font-medium text-fg-2">%</span>
+      </div>
+      <div className="min-w-0">
+        <div className="text-[15px] font-semibold leading-snug tracking-tight">{o.label}</div>
+        <p className="mt-0.5 text-[13.5px] leading-relaxed text-fg-2">{caption}</p>
+        {o.examples.length > 0 && (
+          <button type="button" onClick={() => setOpen((x) => !x)} aria-expanded={open} className="mt-1.5 inline-flex items-center gap-0.5 text-[13px] font-medium text-accent-text hover:underline">
+            {open ? "Hide examples" : "Show examples"}
+            <ChevronRight className={`size-3.5 transition-transform ${open ? "rotate-90" : ""}`} />
+          </button>
+        )}
+        {open && (
+          <div className="mt-2 border-t border-line">
+            <div className="k-list" style={{ ["--inset" as string]: "0px" }}>
+              {o.examples.map((e, i) => (
+                <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-baseline gap-3 py-2 text-[13px]">
+                  <span className="truncate" title={e.name}>
+                    {e.name}
+                  </span>
+                  <span className="truncate text-fg-2" title={e.matched}>
+                    <span className="text-fg-3">matches </span>
+                    {e.matched}
+                  </span>
+                  <span className="flex items-baseline gap-2 whitespace-nowrap text-[12.5px] text-fg-3">
+                    {listName(e.list)}
+                    <Tooltip content="Match score (100 = identical name)">
+                      <span className="w-7 text-right tabular">{Math.round(e.score)}</span>
+                    </Tooltip>
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,15 +1,14 @@
-// Commerce Control List (15 CFR 774 Supp. No. 1): category browser with search, and the single-ECCN reference page.
-import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, ExternalLink, FileSearch, ListTree, Search } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+// Commerce Control List (15 CFR 774 Supp. No. 1): search first, then browse by category; and the single-ECCN page.
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, ExternalLink, ListTree, Search, X } from "lucide-react";
+import { forwardRef, useEffect, useMemo, useRef, useState, type InputHTMLAttributes } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Page, useMeta } from "../components/AppShell.tsx";
-import { CountryName } from "../components/CountryPicker.tsx";
-import { EccnBody } from "../components/EccnView.tsx";
+import { CATEGORY_SHORT, EccnBody, GROUPS, REASONS } from "../components/EccnView.tsx";
 import { useRegSheet } from "../components/RegSheet.tsx";
-import { Badge, Button, Card, CardHeader, Empty, Input, Kbd, PageHeader, SectionLabel, Skeleton, Tooltip } from "../components/ui/index.tsx";
+import { Button, Card, Dialog, Empty, Kbd, PageHeader, Select, Skeleton, Tooltip } from "../components/ui/index.tsx";
 import { api, ApiError, type EccnDetail, type SourceStamp } from "../lib/api.ts";
-import { cx, fmtDate, type Tone } from "../lib/format.ts";
+import { cx, fmtDate } from "../lib/format.ts";
 
 // ---------------------------------------------------------------------------
 // Data
@@ -34,22 +33,6 @@ interface CclHit {
   score: number;
   terms: string[];
 }
-interface CheckRow {
-  index: number;
-  reason: string;
-  scope: string;
-  chart: string;
-  applies: "yes" | "no" | "maybe";
-  appliesWhy: string;
-  licenseRequired: "yes" | "no" | "unknown";
-  cells: { reason: string; column: string; x: boolean }[];
-  note?: string;
-}
-interface CheckResult {
-  dest: string;
-  groups: string[];
-  rows: CheckRow[];
-}
 
 function useCclIndex() {
   return useQuery({ queryKey: ["ccl-index"], queryFn: () => api.get<CclIndex>("/ccl"), staleTime: Infinity });
@@ -64,45 +47,6 @@ function useDebounced<T>(value: T, ms = 180): T {
   return v;
 }
 
-const CATEGORY_SHORT: Record<string, string> = {
-  "0": "Nuclear & miscellaneous",
-  "1": "Materials, chemicals & toxins",
-  "2": "Materials processing",
-  "3": "Electronics",
-  "4": "Computers",
-  "5": "Telecom & information security",
-  "6": "Sensors & lasers",
-  "7": "Navigation & avionics",
-  "8": "Marine",
-  "9": "Aerospace & propulsion",
-};
-
-const GROUPS: Record<string, string> = {
-  A: "Systems, equipment & components",
-  B: "Test, inspection & production equipment",
-  C: "Materials",
-  D: "Software",
-  E: "Technology",
-};
-
-const REASONS: Record<string, string> = {
-  NS: "National security",
-  MT: "Missile technology",
-  NP: "Nuclear nonproliferation",
-  CB: "Chemical & biological weapons",
-  RS: "Regional stability",
-  CC: "Crime control",
-  AT: "Anti-terrorism",
-  FC: "Firearms convention",
-  UN: "United Nations embargo",
-  EI: "Encryption items",
-  SL: "Surreptitious listening",
-  SS: "Short supply",
-  CW: "Chemical Weapons Convention",
-  SI: "Significant items",
-};
-const MULTILATERAL = new Set(["NS", "MT", "NP", "CB"]);
-
 const cleanHeading = (h: string) => h.replace(/\s*\(see List of Items Controlled\)/gi, "").trim();
 const is600 = (id: string) => id[2] === "6";
 const is515 = (id: string) => id.slice(2) === "515";
@@ -116,79 +60,78 @@ function isTyping(e: KeyboardEvent) {
 // ---------------------------------------------------------------------------
 // Small pieces
 
-function StampText({ stamp }: { stamp?: SourceStamp }) {
-  if (!stamp) return <span className="mt-1.5 block text-[12.5px] text-fg-3">Loading source…</span>;
+function StampLine({ stamp }: { stamp?: SourceStamp }) {
   return (
-    <span className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-fg-3">
-      <span>{stamp.source}</span>
-      <span>·</span>
-      <span>
-        as amended to <span className="tabular text-fg-2">{fmtDate(stamp.asOf)}</span>
-      </span>
-      <span>·</span>
-      <a href={stamp.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 hover:text-fg">
-        eCFR <ExternalLink className="size-3" />
-      </a>
-    </span>
-  );
-}
-
-function ReasonChip({ r, muted }: { r: string; muted?: boolean }) {
-  return (
-    <span
-      title={REASONS[r] ?? r}
-      className={cx(
-        "inline-flex h-[18px] items-center rounded px-1 font-mono text-[10.5px] font-medium ring-1 ring-inset",
-        muted || r === "AT" ? "bg-panel-2 text-fg-3 ring-line" : MULTILATERAL.has(r) ? "bg-orange-soft text-orange-text ring-orange/20" : "bg-accent-soft text-accent-text ring-accent/20",
+    <span className="mt-1 block text-[12.5px] text-fg-3">
+      {stamp ? (
+        <>
+          <span title={stamp.source}>As amended to {fmtDate(stamp.asOf)}</span>
+          {" · "}
+          <a href={stamp.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 hover:text-fg">
+            eCFR <ExternalLink className="size-3" />
+          </a>
+        </>
+      ) : (
+        "Loading source…"
       )}
-    >
-      {r}
     </span>
   );
 }
 
-function Marker({ children, title }: { children: ReactNode; title: string }) {
+/** The large search field used at the top of reference pages. */
+const SearchField = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { value: string; onClear: () => void; shortcut?: string }>(function SearchField(
+  { value, onClear, shortcut, className, ...rest },
+  ref,
+) {
   return (
-    <span title={title} className="inline-flex h-[18px] items-center rounded bg-red-soft px-1 text-[10.5px] font-medium text-red-text ring-1 ring-inset ring-red/20">
-      {children}
-    </span>
+    <div className={cx("flex items-center gap-2.5 rounded-2xl bg-fill-2 px-4 transition-shadow focus-within:ring-4 focus-within:ring-accent/15", className)}>
+      <Search className="size-5 shrink-0 text-fg-3" />
+      <input ref={ref} value={value} className="h-12 min-w-0 flex-1 bg-transparent text-[17px] tracking-tight outline-none placeholder:text-fg-3" {...rest} />
+      {value ? (
+        <button type="button" onClick={onClear} className="rounded-full p-1 text-fg-3 hover:bg-fill hover:text-fg" aria-label="Clear search">
+          <X className="size-4" />
+        </button>
+      ) : (
+        shortcut && <Kbd>{shortcut}</Kbd>
+      )}
+    </div>
   );
-}
+});
 
 function EccnRow({ e, showCategory }: { e: CclEntry; showCategory?: boolean }) {
   const reasons = e.reasons.filter((r) => r !== "?");
   const atOnly = reasons.length > 0 && reasons.every((r) => r === "AT");
   const muted = atOnly || e.reserved;
+  const markers = [is600(e.id) && "600 series", is515(e.id) && "9x515", e.itar && "ITAR"].filter(Boolean) as string[];
+  const tail = [...markers, ...reasons];
   return (
-    <Link
-      to={`/regulations/ccl/${e.id}`}
-      className="group flex items-start gap-4 px-4 py-2.5 transition-colors hover:bg-panel-2/60 focus-visible:bg-panel-2 focus-visible:outline-none"
-    >
-      <span className={cx("w-[52px] shrink-0 pt-px font-mono text-[12.5px] font-medium", muted ? "text-fg-3" : "text-fg")}>{e.id}</span>
+    <Link to={`/regulations/ccl/${e.id}`} className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-fill-2 focus-visible:bg-fill-2 focus-visible:outline-none">
+      <span className={cx("w-14 shrink-0 font-mono text-[13px] font-medium", muted && "text-fg-3")}>{e.id}</span>
       <div className="min-w-0 flex-1">
-        <div className={cx("line-clamp-2 text-[13px] leading-snug", muted ? "text-fg-3" : "text-fg-2 group-hover:text-fg")}>{e.reserved ? "[Reserved]" : cleanHeading(e.heading)}</div>
-        {showCategory && <div className="mt-0.5 text-[11.5px] text-fg-3">Category {e.category} · {categoryLabel(e.category)}</div>}
+        <div className={cx("line-clamp-2 text-[14px] leading-snug", e.reserved ? "text-fg-3" : muted ? "text-fg-2" : "text-fg")}>{e.reserved ? "[Reserved]" : cleanHeading(e.heading)}</div>
+        {showCategory && (
+          <div className="mt-0.5 text-[12.5px] text-fg-3">
+            Category {e.category} · {categoryLabel(e.category)}
+          </div>
+        )}
       </div>
-      <div className="flex max-w-[45%] shrink-0 flex-wrap justify-end gap-1 pt-px">
-        {is600(e.id) && <Marker title="“600 series” — munitions items moved from the USML or on the Wassenaar Munitions List">600</Marker>}
-        {is515(e.id) && <Marker title="9x515 — spacecraft and related items moved from USML Category XV">9x515</Marker>}
-        {e.itar && <Marker title="Heading refers to items subject to the ITAR">ITAR</Marker>}
-        {reasons.map((r) => (
-          <ReasonChip key={r} r={r} muted={atOnly} />
-        ))}
-      </div>
+      {tail.length > 0 && (
+        <span className="hidden max-w-[34%] shrink-0 text-right text-[12px] text-fg-3 sm:block" title={reasons.map((r) => `${r} — ${REASONS[r] ?? r}`).join("\n")}>
+          {tail.join(" · ")}
+        </span>
+      )}
+      <ChevronRight className="size-4 shrink-0 text-fg-3" />
     </Link>
   );
 }
 
 function RowsSkeleton({ n = 8 }: { n?: number }) {
   return (
-    <div className="divide-y divide-line">
+    <div className="k-list">
       {Array.from({ length: n }, (_, i) => (
-        <div key={i} className="flex items-center gap-4 px-4 py-3">
+        <div key={i} className="flex items-center gap-4 px-4 py-3.5">
           <Skeleton className="h-4 w-12" />
           <Skeleton className="h-4 flex-1" />
-          <Skeleton className="h-4 w-16" />
         </div>
       ))}
     </div>
@@ -196,7 +139,7 @@ function RowsSkeleton({ n = 8 }: { n?: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// Explainer: how an ECCN is built (§738.2(d))
+// How an ECCN is built (§738.2(d)) — shown on request
 
 const RANGES: [string, string][] = [
   ["000–099", "National security (NS)"],
@@ -210,51 +153,41 @@ const RANGES: [string, string][] = [
   ["990–999", "Anti-terrorism, RS, UN sanctions"],
 ];
 
-function Anatomy() {
-  const open = useRegSheet();
+function Anatomy({ onCite }: { onCite: () => void }) {
   return (
-    <Card className="mb-6">
-      <div className="grid md:grid-cols-[auto_minmax(0,1fr)]">
-        <div className="flex items-center justify-center border-b border-line px-6 py-4 md:border-b-0 md:border-r">
-          <div className="flex items-start gap-1.5" aria-label="ECCN 3A001: category 3, group A, number 001">
-            {[
-              { t: "3", l: "Category" },
-              { t: "A", l: "Group" },
-              { t: "001", l: "Number" },
-            ].map((s) => (
-              <div key={s.l} className="flex flex-col items-center gap-1.5">
-                <span className="rounded-md bg-panel-2 px-2 py-1.5 font-mono text-[20px] font-semibold leading-none ring-1 ring-line">{s.t}</span>
-                <span className="text-[10.5px] font-medium uppercase tracking-[0.06em] text-fg-3">{s.l}</span>
-              </div>
-            ))}
+    <div className="pb-2 text-[14px] leading-relaxed text-fg-2">
+      <div className="flex justify-center gap-2 py-3" aria-label="ECCN 3A001: category 3, group A, number 001">
+        {[
+          { t: "3", l: "Category" },
+          { t: "A", l: "Group" },
+          { t: "001", l: "Number" },
+        ].map((s) => (
+          <div key={s.l} className="flex flex-col items-center gap-1.5">
+            <span className="rounded-lg bg-fill-2 px-3 py-2 font-mono text-[24px] font-semibold leading-none text-fg">{s.t}</span>
+            <span className="text-[12px] text-fg-3">{s.l}</span>
           </div>
-        </div>
-        <div className="min-w-0 px-5 py-4 text-[12.5px] leading-relaxed text-fg-2">
-          <div className="flex items-center justify-between gap-3">
-            <SectionLabel>Reading an ECCN</SectionLabel>
-            <button type="button" onClick={() => open({ kind: "section", id: "738.2", highlight: "(d)", label: "15 CFR 738.2(d)" })} className="text-[12px] text-accent-text hover:underline">
-              §738.2(d)
-            </button>
-          </div>
-          <p className="mt-1.5">
-            The first digit is the <span className="text-fg">category</span> (0–9); the letter is the <span className="text-fg">product group</span> — A systems & components, B test & production
-            equipment, C materials, D software, E technology. The three-digit number tells you the regime behind the entry:
-          </p>
-          <div className="mt-2 grid gap-x-6 gap-y-0.5 sm:grid-cols-2 2xl:grid-cols-3">
-            {RANGES.map(([r, l]) => (
-              <div key={r} className="flex items-baseline gap-2">
-                <span className="w-[58px] shrink-0 font-mono text-[11.5px] tabular text-fg">{r}</span>
-                <span className="truncate text-fg-2">{l}</span>
-              </div>
-            ))}
-          </div>
-          <p className="mt-2.5 text-fg-3">
-            <span className="font-medium text-fg-2">EAR99</span> covers items subject to the EAR that are not listed on the CCL. They rarely need a license, except for embargoed destinations, listed
-            parties or prohibited end uses (Parts 744 and 746).
-          </p>
-        </div>
+        ))}
       </div>
-    </Card>
+      <p className="mt-3">
+        The first digit is the <span className="text-fg">category</span> (0–9). The letter is the <span className="text-fg">product group</span>: A systems and components, B test and production
+        equipment, C materials, D software, E technology. The number tells you the regime behind the entry:
+      </p>
+      <div className="k-list mt-3 border-y border-line [--inset:0px]">
+        {RANGES.map(([r, l]) => (
+          <div key={r} className="flex items-baseline gap-4 py-1.5 text-[13.5px]">
+            <span className="w-16 shrink-0 font-mono text-[12.5px] text-fg">{r}</span>
+            <span>{l}</span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3">
+        <span className="text-fg">EAR99</span> covers items subject to the EAR that are not on the list. They rarely need a license, except for embargoed destinations, listed parties or prohibited end
+        uses (Parts 744 and 746).
+      </p>
+      <button type="button" onClick={onCite} className="mt-3 text-[13.5px] text-accent-text hover:underline">
+        Read 15 CFR 738.2(d)
+      </button>
+    </div>
   );
 }
 
@@ -265,9 +198,11 @@ export function CclPage() {
   const meta = useMeta();
   const index = useCclIndex();
   const nav = useNavigate();
+  const openReg = useRegSheet();
   const [params, setParams] = useSearchParams();
   const cat = params.get("c") ?? "0";
   const [q, setQ] = useState(params.get("q") ?? "");
+  const [anatomy, setAnatomy] = useState(false);
   const dq = useDebounced(q.trim());
   const searching = dq.length >= 2;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -333,302 +268,165 @@ export function CclPage() {
     (h) => byId.get(h.id) ?? { id: h.id, heading: h.heading, category: h.category, group: h.id[1] ?? "", reasons: [], reserved: false, itar: false },
   );
   const current = categories.find((c) => c.id === cat);
+  const fullTitle = current?.title.replace(/[“”"]/g, "").trim();
 
   return (
-    <Page wide>
+    <Page>
       <PageHeader
         title="Commerce Control List"
         description={
           <>
-            Supplement No. 1 to Part 774 of the EAR — every ECCN, grouped by category and product group, with its reasons for control.
-            <StampText stamp={meta.data?.stamps.ccl} />
+            Find the ECCN that describes your item.
+            <StampLine stamp={meta.data?.stamps.ccl} />
           </>
         }
       />
-      <Anatomy />
 
-      <div className="grid gap-6 xl:grid-cols-[232px_minmax(0,1fr)]">
-        {/* Categories — vertical on wide screens, wrapping pills below */}
-        <nav aria-label="CCL categories" className="min-w-0 self-start xl:sticky xl:top-6">
-          <SectionLabel className="mb-2 hidden px-2 xl:block">Categories</SectionLabel>
-          <div className="flex flex-wrap gap-1.5 xl:flex-col xl:flex-nowrap xl:gap-0.5">
-            {index.isLoading
-              ? Array.from({ length: 10 }, (_, i) => <Skeleton key={i} className="h-8 w-40 xl:w-full" />)
-              : categories.map((c) => {
-                  const active = !searching && c.id === cat;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => selectCategory(c.id)}
-                      title={c.title}
-                      aria-current={active ? "page" : undefined}
-                      className={cx(
-                        "flex h-8 min-w-0 items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors xl:w-full",
-                        active ? "bg-panel font-medium text-fg shadow-sm ring-1 ring-line" : "text-fg-2 ring-1 ring-transparent hover:bg-panel-2 hover:text-fg max-xl:ring-line",
-                      )}
-                    >
-                      <span className={cx("w-3 font-mono text-[12px]", active ? "text-fg" : "text-fg-3")}>{c.id}</span>
-                      <span className="min-w-0 flex-1 truncate">{categoryLabel(c.id, c.title)}</span>
-                      <span className="shrink-0 pl-2 text-right text-[11.5px] tabular text-fg-3">{counts[c.id] ?? 0}</span>
-                    </button>
-                  );
-                })}
-          </div>
-        </nav>
-
-        <div className="min-w-0">
-          <div className="mb-4 flex flex-wrap items-center gap-3">
-            <div className="relative min-w-[260px] flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-2 size-4 text-fg-3" />
-              <Input
-                ref={inputRef}
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") setQ("");
-                  if (e.key === "Enter") {
-                    const exact = byId.get(q.trim().toUpperCase().slice(0, 5));
-                    const first = exact ?? hits[0];
-                    if (first) nav(`/regulations/ccl/${first.id}`);
-                  }
-                }}
-                placeholder="Search ECCNs, headings and item text — e.g. 3A090, lathes, “specially designed” sensors"
-                className="pl-8 pr-9"
-                aria-label="Search the Commerce Control List"
-              />
-              {!q && (
-                <span className="pointer-events-none absolute right-2 top-1.5">
-                  <Kbd>/</Kbd>
-                </span>
-              )}
-            </div>
-            <div className="text-[12.5px] tabular text-fg-3">
-              {searching
-                ? search.isFetching && !search.data
-                  ? "Searching…"
-                  : `${hits.length} result${hits.length === 1 ? "" : "s"}`
-                : current
-                  ? `${counts[cat] ?? 0} entries in Category ${cat}`
-                  : null}
-            </div>
-          </div>
-
-          {searching ? (
-            <Card className={cx("overflow-hidden transition-opacity", search.isFetching && "opacity-70")}>
-              {!search.data ? (
-                <RowsSkeleton n={6} />
-              ) : hits.length === 0 ? (
-                <Empty icon={<Search className="size-5" />} title={`No entries match “${dq}”`}>
-                  Search covers ECCN numbers, headings, item paragraphs and notes. Try a broader term or an ECCN prefix such as 3A0.
-                </Empty>
-              ) : (
-                <div className="divide-y divide-line">
-                  {hits.map((e) => (
-                    <EccnRow key={e.id} e={e} showCategory />
-                  ))}
-                </div>
-              )}
-            </Card>
-          ) : index.isLoading ? (
-            <Card className="overflow-hidden">
-              <RowsSkeleton />
-            </Card>
-          ) : index.isError ? (
-            <Card>
-              <Empty icon={<ListTree className="size-5" />} title="The Commerce Control List could not be loaded">
-                Check that the Kanmon server is running and the regulatory data has been synced (Settings → Data).
-              </Empty>
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              {current && (
-                <div>
-                  <h2 className="text-[15px] font-semibold tracking-tight">
-                    Category {cat} — {categoryLabel(cat, current.title)}
-                  </h2>
-                  {current.title.replace(/[“”"]/g, "").trim() !== categoryLabel(cat, current.title) && (
-                    <div className="mt-0.5 text-[12.5px] text-fg-3">{current.title.replace(/[“”]/g, "")}</div>
-                  )}
-                </div>
-              )}
-              {groups.map(({ g, rows }) => (
-                <section key={g} aria-label={`${cat}${g} ${GROUPS[g]}`}>
-                  <div className="mb-2 flex items-baseline gap-2 px-1">
-                    <span className="font-mono text-[12px] font-semibold text-fg">
-                      {cat}
-                      {g}
-                    </span>
-                    <span className="text-[12.5px] font-medium text-fg-2">{GROUPS[g]}</span>
-                    <span className="text-[11.5px] tabular text-fg-3">{rows.length}</span>
-                  </div>
-                  <Card className="divide-y divide-line overflow-hidden">
-                    {rows.map((e) => (
-                      <EccnRow key={e.id} e={e} />
-                    ))}
-                  </Card>
-                </section>
-              ))}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-[11.5px] text-fg-3">
-                <span className="flex items-center gap-1.5">
-                  <ReasonChip r="NS" /> Multilateral regime reasons
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <ReasonChip r="RS" /> Other reasons
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <ReasonChip r="AT" /> Anti-terrorism only (muted)
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
+      <SearchField
+        ref={inputRef}
+        value={q}
+        onClear={() => setQ("")}
+        shortcut="/"
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setQ("");
+          if (e.key === "Enter") {
+            const exact = byId.get(q.trim().toUpperCase().slice(0, 5));
+            const first = exact ?? hits[0];
+            if (first) nav(`/regulations/ccl/${first.id}`);
+          }
+        }}
+        placeholder="ECCN, product or technical term — e.g. 3A090, lathes, infrared cameras"
+        aria-label="Search the Commerce Control List"
+      />
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-1 text-[13px] text-fg-3">
+        <span className="tabular">
+          {searching
+            ? search.isFetching && !search.data
+              ? "Searching…"
+              : `${hits.length} result${hits.length === 1 ? "" : "s"} — press Return to open the first`
+            : "Searches ECCN numbers, headings and the full item text."}
+        </span>
+        <button type="button" onClick={() => setAnatomy(true)} className="text-accent-text hover:underline">
+          How ECCNs are numbered
+        </button>
       </div>
+
+      <div className="mt-10">
+        {searching ? (
+          <Card className={cx("overflow-hidden transition-opacity", search.isFetching && "opacity-70")}>
+            {!search.data ? (
+              <RowsSkeleton n={6} />
+            ) : hits.length === 0 ? (
+              <Empty icon={<Search />} title={`No entries match “${dq}”`}>
+                Try a broader term or an ECCN prefix such as 3A0.
+              </Empty>
+            ) : (
+              <div className="k-list [--inset:88px]">
+                {hits.map((e) => (
+                  <EccnRow key={e.id} e={e} showCategory />
+                ))}
+              </div>
+            )}
+          </Card>
+        ) : index.isError ? (
+          <Card>
+            <Empty icon={<ListTree />} title="The Commerce Control List could not be loaded">
+              Check that the server is running and the regulatory data has been synced in Settings.
+            </Empty>
+          </Card>
+        ) : (
+          <div className="grid gap-8 xl:grid-cols-[236px_minmax(0,1fr)]">
+            <nav aria-label="Categories" className="min-w-0 self-start xl:sticky xl:top-[76px]">
+              <div className="mb-2 hidden px-2.5 text-[13px] font-semibold text-fg-2 xl:block">Browse by category</div>
+              <div className="xl:hidden">
+                <Select value={cat} onChange={(e) => selectCategory(e.target.value)} aria-label="Category">
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.id} — {categoryLabel(c.id, c.title)} ({counts[c.id] ?? 0})
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="hidden flex-col gap-0.5 xl:flex">
+                {index.isLoading
+                  ? Array.from({ length: 10 }, (_, i) => <Skeleton key={i} className="h-8" />)
+                  : categories.map((c) => {
+                      const active = c.id === cat;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => selectCategory(c.id)}
+                          title={c.title}
+                          aria-current={active ? "page" : undefined}
+                          className={cx("flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-left text-[13.5px] transition-colors", active ? "bg-fill font-semibold text-fg" : "text-fg hover:bg-fill-2")}
+                        >
+                          <span className="w-3 text-[12.5px] tabular text-fg-3">{c.id}</span>
+                          <span className="min-w-0 flex-1 truncate">{categoryLabel(c.id, c.title)}</span>
+                          <span className="shrink-0 text-[12px] font-normal tabular text-fg-3">{counts[c.id] ?? 0}</span>
+                        </button>
+                      );
+                    })}
+              </div>
+            </nav>
+
+            <div className="min-w-0">
+              {index.isLoading ? (
+                <Card className="overflow-hidden">
+                  <RowsSkeleton />
+                </Card>
+              ) : (
+                <>
+                  {current && (
+                    <div className="mb-6 px-1">
+                      <h2 className="text-[22px] font-semibold tracking-tight">{categoryLabel(cat, current.title)}</h2>
+                      <p className="mt-0.5 text-[13px] text-fg-3">
+                        Category {cat} · {counts[cat] ?? 0} entries
+                        {fullTitle && fullTitle !== categoryLabel(cat, current.title) && <span className="hidden sm:inline"> · {fullTitle}</span>}
+                      </p>
+                    </div>
+                  )}
+                  <div className="space-y-7">
+                    {groups.map(({ g, rows }) => (
+                      <section key={g} aria-label={`${cat}${g} ${GROUPS[g]}`}>
+                        <h3 className="mb-2 flex items-baseline gap-2 px-1 text-[13px] font-semibold text-fg-2">
+                          <span className="font-mono text-fg">
+                            {cat}
+                            {g}
+                          </span>
+                          {GROUPS[g]}
+                          <span className="font-normal tabular text-fg-3">{rows.length}</span>
+                        </h3>
+                        <Card className="k-list overflow-hidden [--inset:88px]">
+                          {rows.map((e) => (
+                            <EccnRow key={e.id} e={e} />
+                          ))}
+                        </Card>
+                      </section>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={anatomy} onOpenChange={setAnatomy} title="How ECCNs are numbered" description="Every Export Control Classification Number has three parts.">
+        <Anatomy
+          onCite={() => {
+            setAnatomy(false);
+            openReg({ kind: "section", id: "738.2", highlight: "(d)", label: "15 CFR 738.2(d)" });
+          }}
+        />
+      </Dialog>
     </Page>
   );
 }
 
 // ---------------------------------------------------------------------------
 // /regulations/ccl/:id
-
-const QUICK_DESTS = ["CN", "RU", "IN", "VN", "TH", "AE", "KR", "US"];
-
-interface QuickSummary {
-  tone: Tone;
-  label: string;
-  reasons: string[];
-  detail: string;
-}
-
-function summarize(rows: CheckRow[]): QuickSummary {
-  if (!rows.length) return { tone: "neutral", label: "No license table", reasons: [], detail: "This entry has no EAR License Requirements table." };
-  const live = rows.filter((r) => r.applies !== "no");
-  const hard = live.filter((r) => r.applies === "yes" && r.licenseRequired === "yes");
-  const soft = live.filter((r) => r.applies === "maybe" && r.licenseRequired === "yes");
-  const unknown = live.filter((r) => r.licenseRequired === "unknown");
-  const uniq = (xs: CheckRow[]) => [...new Set(xs.map((r) => r.reason))];
-  if (hard.length) {
-    const extra = uniq(soft).filter((r) => !uniq(hard).includes(r));
-    return {
-      tone: "orange",
-      label: "License",
-      reasons: [...uniq(hard), ...extra],
-      detail: `License required for ${uniq(hard).join(", ")} (whole entry)${extra.length ? `; also ${extra.join(", ")} for some paragraphs or conditions` : ""}.`,
-    };
-  }
-  if (soft.length)
-    return {
-      tone: "amber",
-      label: "Depends on scope",
-      reasons: uniq(soft),
-      detail: `License required for ${uniq(soft).join(", ")} only for some paragraphs or under a stated condition — classify to the paragraph.`,
-    };
-  if (unknown.length && unknown.every((r) => /not found on the Commerce Country Chart/i.test(r.note ?? "")))
-    return { tone: "neutral", label: "Not on chart", reasons: [], detail: "This destination has no row on the Commerce Country Chart." };
-  if (unknown.length) return { tone: "gray", label: "Read text", reasons: uniq(unknown), detail: unknown.map((r) => r.note ?? r.chart).join(" · ") };
-  return { tone: "green", label: "NLR", reasons: [], detail: "No Country Chart license requirement for any reason on this entry." };
-}
-
-function QuickCheck({ id }: { id: string }) {
-  const results = useQueries({
-    queries: QUICK_DESTS.map((dest) => ({
-      queryKey: ["eccn-check", id, dest, ""],
-      queryFn: () => api.get<CheckResult>(`/ccl/${id}/check?dest=${dest}&para=`),
-      staleTime: 5 * 60_000,
-    })),
-  });
-  return (
-    <Card>
-      <CardHeader title="Destination quick check" subtitle="Country Chart result for the entry as a whole" />
-      <div className="divide-y divide-line">
-        {QUICK_DESTS.map((dest, i) => {
-          const r = results[i];
-          const s = r.data ? summarize(r.data.rows) : null;
-          return (
-            <div key={dest} className="px-4 py-2">
-              <div className="flex items-center gap-2">
-                <Link to={`/regulations/countries/${dest}`} className="min-w-0 flex-1 truncate text-[13px] text-fg hover:underline">
-                  <CountryName iso2={dest} />
-                </Link>
-                {r.isError ? (
-                  <span className="text-[12px] text-fg-3">Unavailable</span>
-                ) : !s ? (
-                  <Skeleton className="h-5 w-20" />
-                ) : (
-                  <Tooltip content={s.detail} side="left">
-                    <span className="shrink-0">
-                      <Badge tone={s.tone} dot={s.tone !== "neutral"}>
-                        {s.label}
-                      </Badge>
-                    </span>
-                  </Tooltip>
-                )}
-              </div>
-              {s && s.reasons.length > 0 && <div className="mt-0.5 pl-[34px] font-mono text-[11px] text-fg-3">{s.reasons.join(" · ")}</div>}
-            </div>
-          );
-        })}
-      </div>
-      <div className="border-t border-line px-4 py-2.5 text-[11.5px] leading-relaxed text-fg-3">
-        Country Chart reasons only. End-use and end-user controls (Part 744) and embargoes (Part 746 — e.g. §746.8 for Russia) apply separately. Pick any destination under License
-        requirements for a row-by-row result.
-      </div>
-    </Card>
-  );
-}
-
-function linkifyEccns(text: string, known: Set<string>, self: string): ReactNode[] {
-  return text.split(/(\b\d[A-E]\d{3}\b)/g).map((part, i) =>
-    i % 2 === 1 && known.has(part) && part !== self ? (
-      <Link key={i} to={`/regulations/ccl/${part}`} className="font-mono text-[12px] text-accent-text hover:underline">
-        {part}
-      </Link>
-    ) : (
-      part
-    ),
-  );
-}
-
-function RelatedControls({ eccn, known }: { eccn: EccnDetail; known: Set<string> }) {
-  const [more, setMore] = useState(false);
-  const text = eccn.relatedControls?.trim();
-  const refs = useMemo(() => [...new Set(text?.match(/\b\d[A-E]\d{3}\b/g) ?? [])].filter((r) => known.has(r) && r !== eccn.id), [text, known, eccn.id]);
-  const long = (text?.length ?? 0) > 420;
-  return (
-    <Card>
-      <CardHeader title="Related controls" subtitle={refs.length ? `${refs.length} referenced ECCN${refs.length === 1 ? "" : "s"}` : undefined} />
-      <div className="px-4 py-3">
-        {!text ? (
-          <div className="text-[12.5px] text-fg-3">This entry states no related controls.</div>
-        ) : (
-          <>
-            {refs.length > 0 && (
-              <div className="mb-2.5 flex flex-wrap gap-1">
-                {refs.map((r) => (
-                  <Link key={r} to={`/regulations/ccl/${r}`} className="rounded bg-panel-2 px-1.5 py-0.5 font-mono text-[11.5px] text-fg-2 ring-1 ring-line transition-colors hover:text-fg hover:ring-line-strong">
-                    {r}
-                  </Link>
-                ))}
-              </div>
-            )}
-            <div className={cx("text-[12.5px] leading-relaxed text-fg-2", long && !more && "line-clamp-6")}>{linkifyEccns(text, known, eccn.id)}</div>
-            {long && (
-              <button type="button" onClick={() => setMore((m) => !m)} className="mt-1.5 text-[12px] font-medium text-accent-text hover:underline">
-                {more ? "Show less" : "Show all"}
-              </button>
-            )}
-          </>
-        )}
-        {eccn.relatedDefinitions && eccn.relatedDefinitions.trim() && !/^N\/?A\.?$/i.test(eccn.relatedDefinitions.trim()) && (
-          <div className="mt-3 border-t border-line pt-2.5 text-[12px] leading-relaxed text-fg-3">
-            <span className="font-medium text-fg-2">Related definitions: </span>
-            {eccn.relatedDefinitions}
-          </div>
-        )}
-      </div>
-    </Card>
-  );
-}
 
 export function EccnPage() {
   const { id: rawId = "" } = useParams();
@@ -668,31 +466,27 @@ export function EccnPage() {
   const catId = eccn.data?.category ?? (/^\d/.test(id) ? id[0] : "");
 
   return (
-    <Page wide>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-[12.5px] text-fg-3">
+    <Page>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-[13px] text-fg-3">
           <Link to="/regulations/ccl" className="hover:text-fg">
-            Commerce Control List
+            Control List
           </Link>
           {catId && (
             <>
               <ChevronRight className="size-3.5 shrink-0" />
               <Link to={`/regulations/ccl?c=${catId}`} className="truncate hover:text-fg">
-                Category {catId}
-                {category ? ` · ${categoryLabel(catId, category.title)}` : ""}
+                {category ? categoryLabel(catId, category.title) : `Category ${catId}`}
               </Link>
             </>
           )}
-          <ChevronRight className="size-3.5 shrink-0" />
-          <span className="font-mono font-medium text-fg">{id}</span>
         </nav>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <Tooltip content={prev ? <span className="flex items-center gap-1.5">Previous entry <Kbd>[</Kbd></span> : null}>
             <Button size="sm" variant="ghost" disabled={!prev} onClick={() => prev && nav(`/regulations/ccl/${prev.id}`)} icon={<ChevronLeft className="size-3.5" />}>
               <span className="font-mono">{prev?.id ?? "—"}</span>
             </Button>
           </Tooltip>
-          <span className="text-[11.5px] tabular text-fg-3">{pos >= 0 ? `${pos + 1} / ${list.length}` : ""}</span>
           <Tooltip content={next ? <span className="flex items-center gap-1.5">Next entry <Kbd>]</Kbd></span> : null}>
             <Button size="sm" variant="ghost" disabled={!next} onClick={() => next && nav(`/regulations/ccl/${next.id}`)}>
               <span className="font-mono">{next?.id ?? "—"}</span>
@@ -704,60 +498,29 @@ export function EccnPage() {
 
       {notFound ? (
         <Card>
-          <Empty
-            icon={<ListTree className="size-5" />}
-            title={`${id} is not on the Commerce Control List`}
-            action={
-              <Link to="/regulations/ccl">
-                <Button>Browse the CCL</Button>
-              </Link>
-            }
-          >
-            It may have been removed or renumbered in a later amendment — check Detected changes. Items not described by any ECCN are EAR99.
+          <Empty icon={<ListTree />} title={`${id} is not on the Commerce Control List`} action={<Button onClick={() => nav("/regulations/ccl")}>Search the list</Button>}>
+            It may have been removed or renumbered by a later amendment. Items not described by any ECCN are EAR99.
+          </Empty>
+        </Card>
+      ) : eccn.data ? (
+        <EccnBody
+          eccn={eccn.data}
+          highlight={para}
+          known={known}
+        />
+      ) : eccn.isError ? (
+        <Card>
+          <Empty icon={<ListTree />} title="This entry could not be loaded">
+            {(eccn.error as Error).message}
           </Empty>
         </Card>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_312px]">
-          <Card className="min-w-0 p-6">
-            {eccn.data ? (
-              <EccnBody eccn={eccn.data} highlight={para} />
-            ) : eccn.isError ? (
-              <Empty icon={<ListTree className="size-5" />} title="This entry could not be loaded">
-                {(eccn.error as Error).message}
-              </Empty>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex gap-3">
-                  <Skeleton className="h-8 w-20" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-5 w-3/4" />
-                    <Skeleton className="h-3.5 w-1/3" />
-                  </div>
-                </div>
-                <Skeleton className="h-5 w-1/2" />
-                <Skeleton className="mt-6 h-32" />
-                <Skeleton className="h-4" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-4 w-2/3" />
-              </div>
-            )}
-          </Card>
-
-          <aside className="space-y-4 self-start xl:sticky xl:top-6">
-            <Card className="px-4 py-3.5">
-              <div className="text-[13.5px] font-semibold tracking-tight">Classify an item here</div>
-              <p className="mt-1 text-[12.5px] leading-relaxed text-fg-3">
-                Test a product’s specifications against the paragraphs of <span className="font-mono text-fg-2">{id}</span> and record the basis for the classification.
-              </p>
-              <Link to={`/classify?eccn=${id}`} className="mt-3 inline-block">
-                <Button size="sm" icon={<FileSearch className="size-3.5" />}>
-                  Open Classify
-                </Button>
-              </Link>
-            </Card>
-            {eccn.data && <QuickCheck id={eccn.data.id} />}
-            {eccn.data && <RelatedControls eccn={eccn.data} known={known} />}
-          </aside>
+        <div className="space-y-3">
+          <Skeleton className="h-9 w-32" />
+          <Skeleton className="h-5 w-2/3" />
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="mt-8 h-36 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
         </div>
       )}
     </Page>

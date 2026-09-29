@@ -1,11 +1,12 @@
-// Regulation library: a two-pane reader for the EAR (15 CFR 730–774) and the Japanese export-control statutes.
+// Regulation library: a reader for the EAR (15 CFR 730–774) and the Japanese export-control statutes, with a
+// sticky table of contents on the left and full-text search above the text.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { BookOpen, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Page, useMeta } from "../components/AppShell.tsx";
 import { SectionBody } from "../components/RegSheet.tsx";
-import { Badge, Button, Card, Empty, Input, Kbd, PageHeader, Segmented, Skeleton, Tooltip } from "../components/ui/index.tsx";
+import { Button, Card, Empty, Input, Kbd, PageHeader, Section, Segmented, Skeleton, Tooltip } from "../components/ui/index.tsx";
 import { api } from "../lib/api.ts";
 import { cx, fmtDate } from "../lib/format.ts";
 
@@ -128,7 +129,7 @@ function SectionRowLabel({ s }: { s: SectionMeta }) {
     const num = s.id.startsWith(`${s.part} `) ? s.id.slice(s.part.length + 1) : s.id;
     return (
       <>
-        <span className="w-[62px] shrink-0 font-mono text-[11.5px] text-fg-3">{num}</span>
+        <span className="w-[54px] shrink-0 text-[12.5px] tabular text-fg-3">{num}</span>
         <span className="truncate">{s.title}</span>
       </>
     );
@@ -203,7 +204,7 @@ export function LibraryPage() {
   const prev = pos > 0 ? ordered[pos - 1] : undefined;
   const next = pos >= 0 && pos < ordered.length - 1 ? ordered[pos + 1] : undefined;
 
-  // Bring an externally chosen section (deep link, prev/next, search hit) into the list pane. Only the pane
+  // Bring an externally chosen section (deep link, prev/next, search hit) into the contents pane. Only the pane
   // scrolls — scrollIntoView would also move the window. Clicks inside the list never move it.
   const clickedInList = useRef(false);
   useEffect(() => {
@@ -219,6 +220,11 @@ export function LibraryPage() {
     const header = 40; // sticky part header
     if (top < box.scrollTop + header || top + el.offsetHeight > box.scrollTop + box.clientHeight * 0.7) box.scrollTop = Math.max(0, top - box.clientHeight * 0.3);
   }, [sel, sections.data]);
+
+  // A new section starts at the top of the reader.
+  useEffect(() => {
+    if (sel && window.scrollY > 260) window.scrollTo({ top: 0 });
+  }, [sel]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -242,107 +248,91 @@ export function LibraryPage() {
   return (
     <Page wide>
       <PageHeader
-        title="Regulation library"
+        title="Library"
         description={
           <>
-            The full text of the EAR (15 CFR Parts 730–774) and Japan’s export-control statutes, as synced from eCFR and e-Gov.
-            <span className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-fg-3">
-              <span>
-                eCFR as amended to <span className="tabular text-fg-2">{earStamp ? fmtDate(earStamp.asOf) : "…"}</span>
-              </span>
-              <span>·</span>
-              <span>
-                輸出令 as revised to <span className="tabular text-fg-2">{jpStamp ? fmtDate(jpStamp.asOf) : "…"}</span>
-              </span>
-              {meta.data && (
-                <>
-                  <span>·</span>
-                  <span className="tabular">{meta.data.counts.sections} sections</span>
-                </>
-              )}
+            The full text of the EAR and Japan’s export-control law. Every citation in Kanmon opens here.
+            <span className="mt-1 block text-[12.5px] text-fg-3">
+              eCFR as amended to {earStamp ? fmtDate(earStamp.asOf) : "…"} · 輸出令 as revised to {jpStamp ? fmtDate(jpStamp.asOf) : "…"}
+              {meta.data && <span className="tabular"> · {meta.data.counts.sections} sections</span>}
             </span>
           </>
         }
+        actions={
+          <Segmented<Source>
+            value={src}
+            onChange={setSource}
+            options={[
+              { value: "ear", label: "US EAR" },
+              { value: "jp", label: "Japan" },
+            ]}
+          />
+        }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[264px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]">
-        {/* Section list */}
-        <Card className="flex flex-col overflow-hidden self-start lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
-          <div className="space-y-2 border-b border-line p-3">
-            <Segmented<Source>
-              value={src}
-              onChange={setSource}
-              className="w-full [&>button]:flex-1"
-              options={[
-                { value: "ear", label: "US EAR" },
-                { value: "jp", label: "Japan" },
-              ]}
+      <div className="grid gap-10 lg:grid-cols-[264px_minmax(0,1fr)] xl:grid-cols-[288px_minmax(0,1fr)]">
+        {/* Contents */}
+        <nav aria-label="Contents" className="flex min-w-0 flex-col self-start lg:sticky lg:top-[68px] lg:h-[calc(100vh-84px)]">
+          <div className="relative mb-2">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-3" />
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && setFilter("")}
+              placeholder={src === "ear" ? "Filter contents" : "Filter — 第四条, 別表"}
+              className="pl-9"
+              aria-label="Filter the contents"
             />
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-2 size-4 text-fg-3" />
-              <Input
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                onKeyDown={(e) => e.key === "Escape" && setFilter("")}
-                placeholder={src === "ear" ? "Filter sections — 740, “deemed”, Supp." : "Filter — 第四条, 別表, 特例"}
-                className="pl-8"
-                aria-label="Filter sections"
-              />
-            </div>
           </div>
-          <div ref={listRef} className="scroll-thin relative max-h-[60vh] flex-1 overflow-y-auto pb-2 lg:max-h-none">
+          <div ref={listRef} className="scroll-thin relative max-h-[50vh] flex-1 overflow-y-auto pb-6 lg:max-h-none">
             {sections.isLoading ? (
-              <div className="space-y-2 p-3">
+              <div className="space-y-2 p-2">
                 {Array.from({ length: 12 }, (_, i) => (
                   <Skeleton key={i} className="h-5" />
                 ))}
               </div>
             ) : groups.length === 0 ? (
-              <div className="px-4 py-8 text-center text-[12.5px] text-fg-3">No sections match “{filter}”.</div>
+              <div className="px-2.5 py-8 text-[13px] text-fg-3">No sections match “{filter}”.</div>
             ) : (
               groups.map(([part, list]) => (
                 <div key={part}>
-                  <div className="sticky top-0 z-[1] flex items-baseline gap-2 border-b border-line bg-panel/95 px-3 pb-1.5 pt-2.5 backdrop-blur">
-                    <span className="shrink-0 text-[11.5px] font-semibold text-fg">{partLabel(src, part)}</span>
-                    <span className="truncate text-[11.5px] text-fg-3">{partTitle(src, part)}</span>
-                    <span className="ml-auto text-[11px] tabular text-fg-3">{list.length}</span>
+                  <div className="sticky top-0 z-[1] bg-bg px-2.5 pb-1 pt-4">
+                    <div className="flex items-baseline gap-2">
+                      <span className="shrink-0 text-[13px] font-semibold">{partLabel(src, part)}</span>
+                      <span className="truncate text-[12.5px] text-fg-3">{partTitle(src, part)}</span>
+                    </div>
                   </div>
-                  <div className="px-1.5 py-1">
-                    {list.map((s) => {
-                      const active = s.id === sel;
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          data-sid={s.id}
-                          onClick={() => {
-                            clickedInList.current = s.id !== sel;
-                            select(s.id);
-                            setShowResults(false);
-                          }}
-                          aria-current={active ? "true" : undefined}
-                          title={`${s.cite} — ${s.title}`}
-                          className={cx(
-                            "flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[12.5px] transition-colors",
-                            active ? "bg-panel-2 font-medium text-fg ring-1 ring-line" : "text-fg-2 hover:bg-panel-2/70 hover:text-fg",
-                          )}
-                        >
-                          <SectionRowLabel s={s} />
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {list.map((s) => {
+                    const active = s.id === sel;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        data-sid={s.id}
+                        onClick={() => {
+                          clickedInList.current = s.id !== sel;
+                          select(s.id);
+                          setShowResults(false);
+                        }}
+                        aria-current={active ? "true" : undefined}
+                        title={`${s.cite} — ${s.title}`}
+                        className={cx("flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[13.5px] transition-colors", active ? "bg-fill font-medium text-fg" : "text-fg hover:bg-fill-2")}
+                      >
+                        <SectionRowLabel s={s} />
+                      </button>
+                    );
+                  })}
                 </div>
               ))
             )}
           </div>
-        </Card>
+        </nav>
 
         {/* Reader */}
         <div className="min-w-0">
-          <div className="relative mb-4">
-            <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-fg-3" />
-            <Input
+          <div className="flex items-center gap-2.5 rounded-2xl bg-fill-2 px-4 transition-shadow focus-within:ring-4 focus-within:ring-accent/15">
+            <Search className="size-5 shrink-0 text-fg-3" />
+            <input
               ref={searchRef}
               value={q}
               onChange={(e) => {
@@ -361,86 +351,80 @@ export function LibraryPage() {
                 }
               }}
               placeholder={src === "ear" ? "Search the EAR — e.g. deemed export, de minimis, foreign direct product" : "Search Japanese law — e.g. 少額特例, 需要者, 役務取引"}
-              className="h-10 pl-9 pr-16 text-[14px]"
-              aria-label="Search regulation text"
+              aria-label="Search the regulation text"
+              className="h-12 min-w-0 flex-1 bg-transparent text-[17px] tracking-tight outline-none placeholder:text-fg-3"
             />
-            <span className="pointer-events-none absolute right-3 top-2.5">
-              {q ? null : <Kbd>/</Kbd>}
-            </span>
-            {q && (
-              <button type="button" onClick={() => setQ("")} className="absolute right-2 top-2 rounded-md p-1 text-fg-3 hover:bg-panel-2 hover:text-fg" aria-label="Clear search">
+            {q ? (
+              <button type="button" onClick={() => setQ("")} className="rounded-full p-1 text-fg-3 hover:bg-fill hover:text-fg" aria-label="Clear search">
                 <X className="size-4" />
               </button>
+            ) : (
+              <Kbd>/</Kbd>
             )}
           </div>
 
           {dq.length >= 2 && !showResults && (
-            <button type="button" onClick={() => setShowResults(true)} className="-mt-2 mb-3 text-[12.5px] text-accent-text hover:underline">
+            <button type="button" onClick={() => setShowResults(true)} className="mt-2.5 px-1 text-[13px] text-accent-text hover:underline">
               Show {hits.length} result{hits.length === 1 ? "" : "s"} for “{dq}”
             </button>
           )}
 
           {resultsOpen && (
-            <Card className={cx("mb-6 overflow-hidden transition-opacity", search.isFetching && "opacity-70")}>
-              <div className="flex items-center justify-between border-b border-line px-4 py-2 text-[12px] text-fg-3">
+            <div className={cx("mt-6 transition-opacity", search.isFetching && "opacity-70")}>
+              <div className="mb-2 flex items-center justify-between px-1 text-[13px] text-fg-3">
                 <span>
                   {search.data ? `${hits.length} passage${hits.length === 1 ? "" : "s"}` : "Searching…"} in {src === "ear" ? "the EAR" : "Japanese law"}
                 </span>
                 {sel && (
-                  <button type="button" onClick={() => setShowResults(false)} className="hover:text-fg">
+                  <button type="button" onClick={() => setShowResults(false)} className="text-accent-text hover:underline">
                     Back to {current?.cite ?? "section"}
                   </button>
                 )}
               </div>
-              {!search.data ? (
-                <div className="space-y-3 p-4">
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-12" />
-                  ))}
-                </div>
-              ) : hits.length === 0 ? (
-                <Empty icon={<Search className="size-5" />} title={`Nothing found for “${dq}”`}>
-                  {src === "ear" ? "Try fewer words, or switch to Japan to search the Japanese statutes." : "Try a shorter term, or switch to US EAR."}
-                </Empty>
-              ) : (
-                <div className="scroll-thin max-h-[55vh] divide-y divide-line overflow-y-auto">
-                  {hits.map((h) => (
-                    <button
-                      key={h.id}
-                      type="button"
-                      onClick={() => {
-                        select(h.sectionId);
-                        setShowResults(false);
-                        window.scrollTo({ top: 0 });
-                      }}
-                      className={cx("block w-full px-4 py-3 text-left transition-colors hover:bg-panel-2/60 focus-visible:bg-panel-2 focus-visible:outline-none", h.sectionId === sel && "bg-panel-2/40")}
-                    >
-                      <div className="flex flex-wrap items-baseline gap-x-2">
-                        <span className="text-[13px] font-medium text-fg">{h.cite}</span>
-                        <span className="truncate text-[12.5px] text-fg-3">{h.title}</span>
-                      </div>
-                      <div className={cx("mt-1 line-clamp-3 text-[12.5px] leading-relaxed text-fg-2", h.source === "jp" && "tracking-wide")}>
-                        <Bolded text={h.snippet} query={dq} />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Card>
+              <Card className="overflow-hidden">
+                {!search.data ? (
+                  <div className="space-y-3 p-4">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-12" />
+                    ))}
+                  </div>
+                ) : hits.length === 0 ? (
+                  <Empty icon={<Search />} title={`Nothing found for “${dq}”`}>
+                    {src === "ear" ? "Try fewer words, or switch to Japan to search the Japanese statutes." : "Try a shorter term, or switch to US EAR."}
+                  </Empty>
+                ) : (
+                  <div className="k-list">
+                    {hits.map((h) => (
+                      <button
+                        key={h.id}
+                        type="button"
+                        onClick={() => {
+                          select(h.sectionId);
+                          setShowResults(false);
+                          window.scrollTo({ top: 0 });
+                        }}
+                        className={cx("block w-full px-4 py-3 text-left transition-colors hover:bg-fill-2", h.sectionId === sel && "bg-fill-2")}
+                      >
+                        <div className="flex flex-wrap items-baseline gap-x-2">
+                          <span className="text-[14px] font-medium">{h.cite}</span>
+                          <span className="truncate text-[13px] text-fg-3">{h.title}</span>
+                        </div>
+                        <div className={cx("mt-1 line-clamp-3 max-w-[80ch] text-[13.5px] leading-relaxed text-fg-2", h.source === "jp" && "tracking-[0.02em]")}>
+                          <Bolded text={h.snippet} query={dq} />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
           )}
 
           {sel ? (
-            <>
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2 text-[12.5px] text-fg-3">
-                  <Badge tone={sel.startsWith("jp:") ? "violet" : "blue"} className="shrink-0 whitespace-nowrap">{sel.startsWith("jp:") ? "Japan" : "US EAR"}</Badge>
-                  {current && (
-                    <span className="truncate">
-                      {partLabel(current.source, current.part)} · {partTitle(current.source, current.part)}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
+            <div className="mt-8">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2">
+                <span className="min-w-0 truncate px-1 text-[13px] text-fg-3">{current ? `${partLabel(current.source, current.part)} · ${partTitle(current.source, current.part)}` : ""}</span>
+                <div className="flex items-center gap-0.5">
                   <Tooltip content={prev ? <span className="flex items-center gap-1.5">{prev.cite} <Kbd>[</Kbd></span> : null}>
                     <Button size="sm" variant="ghost" disabled={!prev} onClick={() => prev && select(prev.id)} icon={<ChevronLeft className="size-3.5" />}>
                       Previous
@@ -454,33 +438,50 @@ export function LibraryPage() {
                   </Tooltip>
                 </div>
               </div>
-              <Card className="min-h-[50vh]">
-                <SectionBody key={sel} id={sel} />
-              </Card>
-            </>
+              <div className="min-h-[50vh]">
+                <SectionBody key={sel} id={sel} className="px-1 pb-10 pt-6" />
+              </div>
+              {(prev || next) && (
+                <div className="grid gap-3 border-t border-line pt-4 sm:grid-cols-2">
+                  {prev ? (
+                    <button type="button" onClick={() => select(prev.id)} className="rounded-lg px-3 py-2 text-left transition-colors hover:bg-fill-2">
+                      <div className="text-[12.5px] text-fg-3">Previous</div>
+                      <div className="truncate text-[14px] text-accent-text">
+                        {prev.cite} · {prev.title}
+                      </div>
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                  {next && (
+                    <button type="button" onClick={() => select(next.id)} className="rounded-lg px-3 py-2 text-right transition-colors hover:bg-fill-2">
+                      <div className="text-[12.5px] text-fg-3">Next</div>
+                      <div className="truncate text-[14px] text-accent-text">
+                        {next.cite} · {next.title}
+                      </div>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           ) : (
             !resultsOpen && (
-              <Card>
-                <Empty icon={<BookOpen className="size-5" />} title="Select a section to read">
-                  Pick a section on the left, or search the full text above. Every citation elsewhere in Kanmon opens the same text.
+              <div className="mt-10">
+                <Empty icon={<BookOpen />} title="Choose a section to read">
+                  Pick one from the contents, or search the full text above.
                 </Empty>
-                <div className="border-t border-line px-5 py-4">
-                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-fg-3">Good places to start</div>
-                  <div className="grid gap-1 sm:grid-cols-2">
+                <Section title="Good places to start" className="mx-auto max-w-2xl">
+                  <Card className="k-list">
                     {START[src].map((x) => (
-                      <button
-                        key={x.id}
-                        type="button"
-                        onClick={() => select(x.id)}
-                        className="flex items-baseline gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] transition-colors hover:bg-panel-2"
-                      >
-                        <span className="shrink-0 font-medium text-fg">{x.cite}</span>
-                        <span className="truncate text-fg-3">{x.title}</span>
+                      <button key={x.id} type="button" onClick={() => select(x.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-fill-2">
+                        <span className="w-40 shrink-0 text-[14px] font-medium">{x.cite}</span>
+                        <span className="min-w-0 flex-1 truncate text-[14px] text-fg-2">{x.title}</span>
+                        <ChevronRight className="size-4 shrink-0 text-fg-3" />
                       </button>
                     ))}
-                  </div>
-                </div>
-              </Card>
+                  </Card>
+                </Section>
+              </div>
             )
           )}
         </div>

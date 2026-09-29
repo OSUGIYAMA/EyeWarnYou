@@ -303,7 +303,13 @@ function assessItem(c: Case, item: Item, d: EngineData, tx: JpTx, opts: JpOption
     if (d.jp.russiaDiversion.includes(dest) && in23) {
       if (tx.designated === "yes") approvalReasons.push(`${countryName(d, dest)} (別表第二の四): 別表第二の三 goods to a METI-designated person (第2条第1項第1号の8)`);
       else if (tx.designated === "unknown") {
-        findings.push({ id: "jp.div", status: "incomplete", title: `Confirm no party is a METI-designated person under the Russia-diversion measures (${countryName(d, dest)} is in 別表第二の四)`, citations: [C.order2, C.appx2_4] });
+        findings.push({
+          id: "jp.div",
+          status: "incomplete",
+          title: `Confirm no party is a METI-designated person under the Russia-diversion measures (${countryName(d, dest)} is in 別表第二の四)`,
+          citations: [C.order2, C.appx2_4],
+          question: { id: "jp.designated", text: "Is any party a person designated by METI notice under the Russia / Belarus measures (including third-country diversion measures)?" },
+        });
         outcomes.push("incomplete");
       }
     }

@@ -1,21 +1,54 @@
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Check, CircleAlert, Copy, FileText, Loader2, MoreHorizontal, Package, Plus, Send, Trash2, X } from "lucide-react";
-import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Check, ChevronLeft, CircleAlert, CircleCheck, Copy, FileText, Loader2, MoreHorizontal, Package, Plus, Trash2 } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Page } from "../components/AppShell.tsx";
 import { CountryPicker } from "../components/CountryPicker.tsx";
-import { Determination } from "../components/case/Determination.tsx";
+import { Determination, Verdict } from "../components/case/Determination.tsx";
 import { ItemEditor } from "../components/case/ItemEditor.tsx";
 import { PartiesCard } from "../components/case/PartiesCard.tsx";
 import { QuestionsCard } from "../components/case/QuestionsCard.tsx";
 import { useCaseEditor } from "../components/case/useCaseEditor.ts";
-import { Badge, Button, Card, CardHeader, Dialog, Empty, Field, Input, Select, Skeleton, Textarea, toast } from "../components/ui/index.tsx";
+import { Button, Card, Dialog, Empty, Field, Input, Section, Select, Skeleton, Textarea, toast } from "../components/ui/index.tsx";
+import { caseProgress, type Progress, type Step } from "@/shared/progress.ts";
 import { api, ApiError, type Case, type Item } from "../lib/api.ts";
 import { cx, fmtDate, relTime, STATUS_LABEL } from "../lib/format.ts";
 
+/** Scroll a case section — or, for questions, the first unanswered one — into view and briefly highlight it. */
+function reveal(anchor: string) {
+  const first = anchor === "questions" ? document.querySelector<HTMLElement>('#questions [data-open="true"]') : null;
+  if (first) {
+    first.scrollIntoView({ behavior: "smooth", block: "center" });
+    first.animate([{ backgroundColor: "transparent" }, { backgroundColor: "color-mix(in srgb, var(--accent) 14%, transparent)" }, { backgroundColor: "transparent" }], { duration: 1600, easing: "ease-out", delay: 300 });
+    return;
+  }
+  const el = document.getElementById(anchor);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+  el.animate([{ boxShadow: "0 0 0 0 transparent" }, { boxShadow: "0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent)" }, { boxShadow: "0 0 0 0 transparent" }], { duration: 1400, easing: "ease-out", delay: 250 });
+}
+
+const SECTION_STEPS: Record<string, Step["id"][]> = {
+  transaction: ["route"],
+  items: ["goods", "details"],
+  parties: ["parties", "screen", "matches"],
+  questions: ["questions"],
+  review: ["submit", "decide"],
+};
+
+function StepMark({ progress, section, n }: { progress: Progress; section: string; n: number }) {
+  const steps = progress.steps.filter((s) => SECTION_STEPS[section].includes(s.id));
+  const done = steps.every((s) => s.done);
+  return done ? (
+    <CircleCheck className="size-5 text-green" fill="currentColor" stroke="var(--bg)" strokeWidth={2} aria-label="Done" />
+  ) : (
+    <span className={cx("flex size-5 items-center justify-center rounded-full text-[11px] font-semibold tabular", progress.next && SECTION_STEPS[section].includes(progress.next.id) ? "bg-accent text-white" : "ring-[1.5px] ring-inset ring-fg-3/60 text-fg-3")}>{n}</span>
+  );
+}
+
 const INCOTERMS = ["", "EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"];
-const REGIONS: Record<string, string> = { "": "—", "UA-CRIMEA": "Crimea region", "UA-DNR": "“DNR” region (Donetsk)", "UA-LNR": "“LNR” region (Luhansk)" };
+const REGIONS: Record<string, string> = { "": "Not a listed region", "UA-CRIMEA": "Crimea region", "UA-DNR": "“DNR” region (Donetsk)", "UA-LNR": "“LNR” region (Luhansk)" };
 
 function blankItem(): Item {
   return {
@@ -34,25 +67,34 @@ function blankItem(): Item {
 export function CasePage() {
   const { id = "" } = useParams();
   const nav = useNavigate();
+  const { hash } = useLocation();
   const ed = useCaseEditor(id);
   const [busy, setBusy] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState<null | "approved" | "rejected" | "submitted" | "on_hold">(null);
   const [note, setNote] = useState("");
+  const loaded = !!ed.view;
+
+  // Arriving from "Continue" on the home page lands on the section that needs work.
+  useEffect(() => {
+    if (loaded && hash) setTimeout(() => reveal(hash.slice(1)), 150);
+  }, [loaded, hash]);
 
   if (ed.error) return <Page><Empty title="Case not found">{(ed.error as Error).message}</Empty></Page>;
   if (!ed.draft || !ed.view)
     return (
       <Page wide>
-        <Skeleton className="mb-3 h-6 w-64" />
-        <div className="grid gap-6 xl:grid-cols-[1fr_460px]">
-          <div className="space-y-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-40" />)}</div>
-          <Skeleton className="h-96" />
+        <Skeleton className="mb-3 h-8 w-96" />
+        <Skeleton className="mb-8 h-40 rounded-xl" />
+        <div className="grid gap-8 xl:grid-cols-[1fr_460px]">
+          <div className="space-y-4">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-40 rounded-xl" />)}</div>
+          <Skeleton className="h-96 rounded-xl" />
         </div>
       </Page>
     );
   const c = ed.draft;
   const view = ed.view;
   const set = (fn: (k: Case) => void, immediate = false) => ed.update((k) => (fn(k), k), immediate);
+  const progress = caseProgress(c, view.assessment);
 
   const run = async (label: string, fn: () => Promise<unknown>) => {
     setBusy(label);
@@ -80,16 +122,53 @@ export function CasePage() {
 
   const juris = (itemId: string) => view.assessment.jurisdictions.map((j) => ({ jurisdiction: j.jurisdiction, a: j.items.find((x) => x.itemId === itemId) }));
   const canApprove = !["incomplete", "prohibited"].includes(view.assessment.overall);
+  const screen = () => run("screen", () => ed.action("/screen"));
+  const addItem = () => set((k) => void k.items.push(blankItem()));
+
+  /** The one primary action on the page: whatever the case needs next. */
+  const next = progress.next;
+  let action: ReactNode = null;
+  if (c.status === "in_review")
+    action = (
+      <>
+        <Button onClick={() => setReviewOpen("rejected")}>Reject</Button>
+        <Button variant="primary" onClick={() => setReviewOpen("approved")} disabled={!canApprove} title={canApprove ? undefined : "Resolve the open items first"}>
+          Approve
+        </Button>
+      </>
+    );
+  else if (c.status === "approved" || c.status === "rejected" || c.status === "on_hold")
+    action = (
+      <Button onClick={() => run("reopen", () => ed.action("/review", { action: "reopened" }))} loading={busy === "reopen"}>
+        Reopen
+      </Button>
+    );
+  else if (next)
+    action = (
+      <Button
+        variant="primary"
+        size="lg"
+        loading={next.id === "screen" && busy === "screen"}
+        onClick={() => {
+          if (next.id === "screen") void screen();
+          else if (next.id === "submit") setReviewOpen("submitted");
+          else {
+            if (next.id === "goods" && !c.items.length) addItem();
+            reveal(next.anchor);
+          }
+        }}
+      >
+        {next.label}
+      </Button>
+    );
 
   return (
     <Page wide>
-      <div className="mb-4 flex items-center gap-2 text-[12.5px] text-fg-3">
-        <Link to="/cases" className="inline-flex items-center gap-1 hover:text-fg">
-          <ArrowLeft className="size-3.5" /> Cases
+      <div className="mb-3 flex items-center justify-between text-[13.5px]">
+        <Link to="/cases" className="-ml-1 inline-flex items-center text-accent-text hover:underline">
+          <ChevronLeft className="size-4" /> Cases
         </Link>
-        <span>/</span>
-        <span className="font-mono">{c.ref}</span>
-        <span className="ml-auto flex items-center gap-1.5">
+        <span className="flex items-center gap-1.5 text-[12.5px] text-fg-3">
           {ed.save === "saving" ? (
             <>
               <Loader2 className="size-3 animate-spin" /> Saving
@@ -105,59 +184,38 @@ export function CasePage() {
       </div>
 
       <div className="mb-6 flex flex-wrap items-start gap-4">
-        <div className="min-w-0 flex-1">
-          <input
-            value={c.title}
-            onChange={(e) => set((k) => void (k.title = e.target.value))}
-            className="w-full bg-transparent text-[22px] font-semibold tracking-tight outline-none"
-            aria-label="Case title"
-          />
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[12.5px] text-fg-3">
-            <Badge tone={c.status === "approved" ? "green" : c.status === "rejected" ? "red" : c.status === "in_review" ? "blue" : c.status === "on_hold" ? "amber" : "gray"} dot>
-              {STATUS_LABEL[c.status]}
-            </Badge>
-            <span>Created {fmtDate(c.createdAt)}{c.createdBy ? ` by ${c.createdBy}` : ""}</span>
+        <div className="min-w-[min(100%,26rem)] flex-1">
+          <TitleInput value={c.title} onChange={(v) => set((k) => void (k.title = v))} />
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[13px] text-fg-3">
+            <span className="tabular">{c.ref}</span>
+            <span>·</span>
+            <span className={cx(c.status === "approved" && "text-green-text", c.status === "rejected" && "text-red-text", c.status === "in_review" && "text-accent-text")}>{STATUS_LABEL[c.status]}</span>
+            <span>·</span>
+            <span>
+              Created {fmtDate(c.createdAt)}
+              {c.createdBy ? ` by ${c.createdBy}` : ""}
+            </span>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <Link to={`/cases/${c.id}/report`} target="_blank">
-            <Button icon={<FileText className="size-3.5" />}>Report</Button>
+            <Button icon={<FileText className="size-3.5" />}>Review record</Button>
           </Link>
-          {c.status === "draft" && (
-            <Button variant="primary" icon={<Send className="size-3.5" />} onClick={() => setReviewOpen("submitted")}>
-              Submit for review
-            </Button>
-          )}
-          {c.status === "in_review" && (
-            <>
-              <Button variant="danger" icon={<X className="size-3.5" />} onClick={() => setReviewOpen("rejected")}>
-                Reject
-              </Button>
-              <Button variant="primary" icon={<Check className="size-3.5" />} onClick={() => setReviewOpen("approved")} disabled={!canApprove} title={canApprove ? undefined : "Resolve open items first"}>
-                Approve
-              </Button>
-            </>
-          )}
-          {(c.status === "approved" || c.status === "rejected" || c.status === "on_hold") && (
-            <Button onClick={() => run("reopen", () => ed.action("/review", { action: "reopened" }))} loading={busy === "reopen"}>
-              Reopen
-            </Button>
-          )}
           <Dropdown.Root>
             <Dropdown.Trigger asChild>
-              <Button variant="ghost" aria-label="More actions" className="px-2">
+              <button aria-label="More actions" className="inline-flex size-[34px] items-center justify-center rounded-full bg-fill text-fg hover:bg-panel-3">
                 <MoreHorizontal className="size-4" />
-              </Button>
+              </button>
             </Dropdown.Trigger>
             <Dropdown.Portal>
-              <Dropdown.Content align="end" sideOffset={6} className="z-50 min-w-48 rounded-xl border border-line bg-panel p-1 shadow-float animate-in">
+              <Dropdown.Content align="end" sideOffset={6} className="material z-50 min-w-52 rounded-xl p-1 shadow-float animate-in">
                 <MenuItem icon={<Copy />} onSelect={() => run("dup", async () => nav(`/cases/${(await api.post<{ case: Case }>(`/cases/${c.id}/duplicate`)).case.id}`))}>
-                  Duplicate case
+                  Duplicate
                 </MenuItem>
                 <MenuItem icon={<CircleAlert />} onSelect={() => setReviewOpen("on_hold")}>
                   Put on hold
                 </MenuItem>
-                <Dropdown.Separator className="my-1 h-px bg-line" />
+                <Dropdown.Separator className="mx-2 my-1 h-px bg-line" />
                 <MenuItem
                   icon={<Trash2 />}
                   danger
@@ -173,18 +231,22 @@ export function CasePage() {
         </div>
       </div>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_470px]">
-        <div className="min-w-0 space-y-6">
-          <Card>
-            <CardHeader title="Transaction" subtitle="Where the goods ship from decides which export regime governs the shipment; the destination drives every country-based rule." />
-            <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-3">
+      <Verdict c={c} assessment={view.assessment} progress={progress} action={action} />
+
+      <div className="mt-10 grid items-start gap-10 xl:grid-cols-[minmax(0,1fr)_480px]">
+        <div className="min-w-0 space-y-10">
+          <Section id="transaction" title="Shipment" lead={<StepMark progress={progress} section="transaction" n={1} />} description="Origin decides the governing export law; the destination drives every country rule.">
+            <Card className="grid grid-cols-2 gap-x-4 gap-y-4 p-5 md:grid-cols-3">
               <Field label="Ships from">
                 <CountryPicker value={c.shipFrom} onChange={(v) => set((k) => void (k.shipFrom = v), true)} />
               </Field>
               <Field label="Ultimate destination">
-                <CountryPicker value={c.destination} onChange={(v) => set((k) => void ((k.destination = v), v !== "UA" && (k.destinationRegion = "")), true)} />
+                <CountryPicker value={c.destination} onChange={(v) => set((k) => void ((k.destination = v), v !== "UA" && (k.destinationRegion = "")), true)} placeholder="Choose a country" />
               </Field>
-              {c.destination === "UA" ? (
+              <Field label="Planned ship date">
+                <Input type="date" value={c.shipDate} onChange={(e) => set((k) => void (k.shipDate = e.target.value), true)} />
+              </Field>
+              {c.destination === "UA" && (
                 <Field label="Region within Ukraine">
                   <Select value={c.destinationRegion} onChange={(e) => set((k) => void (k.destinationRegion = e.target.value), true)}>
                     {Object.entries(REGIONS).map(([v, l]) => (
@@ -194,12 +256,8 @@ export function CasePage() {
                     ))}
                   </Select>
                 </Field>
-              ) : (
-                <Field label="Planned ship date" hint="Rules with effective dates are evaluated on this date">
-                  <Input type="date" value={c.shipDate} onChange={(e) => set((k) => void (k.shipDate = e.target.value), true)} />
-                </Field>
               )}
-              <Field label="Contract / PO reference">
+              <Field label="Contract or PO">
                 <Input value={c.contractRef} onChange={(e) => set((k) => void (k.contractRef = e.target.value))} />
               </Field>
               <Field label="Incoterms">
@@ -211,40 +269,37 @@ export function CasePage() {
                   ))}
                 </Select>
               </Field>
-              {c.destination === "UA" && (
-                <Field label="Planned ship date">
-                  <Input type="date" value={c.shipDate} onChange={(e) => set((k) => void (k.shipDate = e.target.value), true)} />
-                </Field>
-              )}
               <Field label="Exporter of record">
                 <Input value={c.exporter} onChange={(e) => set((k) => void (k.exporter = e.target.value))} placeholder="Legal entity shipping the goods" />
               </Field>
               <Field label="Stated end use" className="col-span-2 md:col-span-3">
-                <Textarea rows={2} value={c.endUseDescription} onChange={(e) => set((k) => void (k.endUseDescription = e.target.value))} placeholder="As stated by the customer (end-use statement / contract)" />
+                <Textarea rows={2} value={c.endUseDescription} onChange={(e) => set((k) => void (k.endUseDescription = e.target.value))} placeholder="As stated by the customer in the end-use statement or contract" />
               </Field>
-            </div>
-          </Card>
+            </Card>
+          </Section>
 
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <div className="text-[13.5px] font-semibold tracking-tight">
-                Items <span className="font-normal text-fg-3">({c.items.length})</span>
-              </div>
-              <div className="flex gap-1.5">
+          <Section
+            id="items"
+            title="Goods"
+            lead={<StepMark progress={progress} section="items" n={2} />}
+            description="Every product, software or technology in the deal."
+            actions={
+              <>
                 <ProductImport onPick={(p) => set((k) => void k.items.push({ ...blankItem(), ...p, id: Math.random().toString(36).slice(2, 10) }), true)} />
-                <Button size="sm" icon={<Plus className="size-3.5" />} onClick={() => set((k) => void k.items.push(blankItem()))}>
+                <Button size="sm" icon={<Plus className="size-3.5" />} onClick={addItem}>
                   Add item
                 </Button>
-              </div>
-            </div>
+              </>
+            }
+          >
             {c.items.length === 0 ? (
               <Card>
-                <Empty title="No items" action={<Button size="sm" icon={<Plus className="size-3.5" />} onClick={() => set((k) => void k.items.push(blankItem()))}>Add item</Button>}>
-                  Add each product, software or technology in the transaction.
+                <Empty title="No goods yet" action={<Button variant="primary" icon={<Plus className="size-3.5" />} onClick={addItem}>Add an item</Button>}>
+                  Add each product, software or technology being exported.
                 </Empty>
               </Card>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {c.items.map((item, idx) => (
                   <ItemEditor
                     key={item.id}
@@ -260,17 +315,21 @@ export function CasePage() {
                 ))}
               </div>
             )}
-          </div>
+          </Section>
 
           <PartiesCard
             c={c}
+            lead={<StepMark progress={progress} section="parties" n={3} />}
             screening={busy === "screen"}
             onChange={(fn, imm) => set(fn, imm)}
-            onScreen={() => run("screen", () => ed.action("/screen"))}
+            onScreen={screen}
             onDisposition={(partyId, entryId, disposition, n) => run("disp", () => ed.action("/disposition", { partyId, entryId, disposition, note: n }))}
           />
 
           <QuestionsCard
+            c={c}
+            assessment={view.assessment}
+            lead={<StepMark progress={progress} section="questions" n={4} />}
             questions={view.questions}
             onAnswer={onQuestion}
             onAnswerMany={(ids, v) =>
@@ -280,32 +339,42 @@ export function CasePage() {
             }
           />
 
-          <Card>
-            <CardHeader title="Notes & review trail" />
-            <div className="p-4">
-              <Textarea rows={3} value={c.notes} onChange={(e) => set((k) => void (k.notes = e.target.value))} placeholder="Internal notes: inquiries made, documents received, rationale…" />
-              <ol className="mt-4 space-y-3 border-l border-line pl-4">
+          <Section id="review" title="Decision" lead={<StepMark progress={progress} section="review" n={5} />} description="Notes and the review trail are printed on the review record.">
+            <Card className="p-5">
+              <Textarea rows={3} value={c.notes} onChange={(e) => set((k) => void (k.notes = e.target.value))} placeholder="Notes: inquiries made, documents received, reasons for the decision…" />
+              <ol className="mt-5 space-y-3">
                 {[...c.review].reverse().map((r, i) => (
-                  <li key={i} className="relative text-[12.5px]">
-                    <span className={cx("absolute -left-[21px] top-1 size-2.5 rounded-full ring-2 ring-panel", r.action === "approved" ? "bg-green" : r.action === "rejected" ? "bg-red" : r.action === "submitted" ? "bg-accent" : "bg-fg-3")} />
+                  <li key={i} className="flex gap-3 text-[13px]">
+                    <span className={cx("mt-1.5 size-2 shrink-0 rounded-full", r.action === "approved" ? "bg-green" : r.action === "rejected" ? "bg-red" : r.action === "submitted" ? "bg-accent" : "bg-fg-3/50")} />
                     <div>
                       <span className="font-medium capitalize">{r.action.replace("_", " ")}</span>
-                      {r.by && <span className="text-fg-3"> by {r.by}</span>}
-                      <span className="text-fg-3"> · {fmtDate(r.at)}</span>
-                      {r.outcome && <span className="text-fg-3"> · determination: {r.outcome.replace(/_/g, " ")}</span>}
+                      <span className="text-fg-3">
+                        {r.by && ` by ${r.by}`} · {fmtDate(r.at)}
+                        {r.outcome && ` · determination: ${r.outcome.replace(/_/g, " ")}`}
+                      </span>
+                      {r.note && <div className="mt-0.5 text-fg-2">{r.note}</div>}
                     </div>
-                    {r.note && <div className="mt-0.5 text-fg-2">{r.note}</div>}
                   </li>
                 ))}
               </ol>
-            </div>
-          </Card>
+              {c.status === "draft" && (
+                <div className="mt-5 flex items-center justify-between gap-4 border-t border-line pt-4">
+                  <span className="text-[13px] text-fg-2">{next && next.id !== "submit" ? `Still to do: ${progress.steps.filter((s) => !s.done && s.id !== "submit" && s.id !== "decide").map((s) => s.label.toLowerCase()).join(", ")}.` : "Everything is in place for a reviewer."}</span>
+                  <Button variant={next?.id === "submit" ? "primary" : "secondary"} onClick={() => setReviewOpen("submitted")}>
+                    Submit for review
+                  </Button>
+                </div>
+              )}
+            </Card>
+          </Section>
         </div>
 
-        <aside className="xl:sticky xl:top-6">
-          <div className="scroll-thin xl:max-h-[calc(100vh-48px)] xl:overflow-y-auto xl:rounded-xl">
-            <Determination c={c} assessment={view.assessment} onQuestion={onQuestion} />
-          </div>
+        <aside className="xl:sticky xl:top-8">
+          <Section title="How each law applies">
+            <div className="scroll-thin xl:max-h-[calc(100vh-110px)] xl:overflow-y-auto">
+              <Determination c={c} assessment={view.assessment} onQuestion={onQuestion} />
+            </div>
+          </Section>
         </aside>
       </div>
 
@@ -313,12 +382,16 @@ export function CasePage() {
         open={!!reviewOpen}
         onOpenChange={(o) => !o && setReviewOpen(null)}
         title={reviewOpen === "approved" ? "Approve this transaction" : reviewOpen === "rejected" ? "Reject this transaction" : reviewOpen === "on_hold" ? "Put on hold" : "Submit for review"}
-        description={reviewOpen === "approved" ? "The current determination and the data versions it relied on are recorded with your decision." : undefined}
+        description={
+          reviewOpen === "approved"
+            ? "The determination and the data versions it relied on are recorded with your decision."
+            : reviewOpen === "submitted"
+              ? "A reviewer will see the determination, your answers and your notes."
+              : undefined
+        }
         footer={
           <>
-            <Button variant="ghost" onClick={() => setReviewOpen(null)}>
-              Cancel
-            </Button>
+            <Button onClick={() => setReviewOpen(null)}>Cancel</Button>
             <Button
               variant={reviewOpen === "rejected" ? "danger" : "primary"}
               loading={busy === "review"}
@@ -327,16 +400,16 @@ export function CasePage() {
                   await ed.action("/review", { action: reviewOpen, note: note || undefined });
                   setReviewOpen(null);
                   setNote("");
-                  toast(reviewOpen === "approved" ? "Approved" : "Recorded", { tone: "success" });
+                  toast(reviewOpen === "approved" ? "Approved" : reviewOpen === "submitted" ? "Submitted for review" : "Recorded", { tone: "success" });
                 })
               }
             >
-              Confirm
+              {reviewOpen === "approved" ? "Approve" : reviewOpen === "rejected" ? "Reject" : reviewOpen === "on_hold" ? "Put on hold" : "Submit"}
             </Button>
           </>
         }
       >
-        <Field label={reviewOpen === "approved" ? "Conditions / rationale (recorded in the trail)" : "Note"}>
+        <Field label={reviewOpen === "approved" ? "Conditions and reasons (recorded in the trail)" : "Note"}>
           <Textarea rows={4} value={note} onChange={(e) => setNote(e.target.value)} autoFocus placeholder={reviewOpen === "approved" ? "e.g. Approved under License Exception LVS; UVL statement obtained…" : ""} />
         </Field>
       </Dialog>
@@ -346,7 +419,7 @@ export function CasePage() {
 
 function MenuItem({ icon, children, onSelect, danger }: { icon: React.ReactNode; children: React.ReactNode; onSelect: () => void; danger?: boolean }) {
   return (
-    <Dropdown.Item onSelect={onSelect} className={cx("flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] outline-none data-[highlighted]:bg-panel-2 [&>svg]:size-3.5", danger ? "text-red-text" : "text-fg")}>
+    <Dropdown.Item onSelect={onSelect} className={cx("flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13.5px] outline-none data-[highlighted]:bg-accent data-[highlighted]:text-white [&>svg]:size-4", danger ? "text-red-text" : "text-fg")}>
       {icon}
       {children}
     </Dropdown.Item>
@@ -362,8 +435,8 @@ function ProductImport({ onPick }: { onPick: (p: Partial<Item>) => void }) {
         From product master
       </Button>
       <Dialog open={open} onOpenChange={setOpen} title="Add from product master" description="Reuse a product with its recorded classifications.">
-        {products.data?.length === 0 && <div className="py-6 text-center text-[13px] text-fg-3">No products saved yet. Save one from the Classify page.</div>}
-        <div className="divide-y divide-line">
+        {products.data?.length === 0 && <div className="py-6 text-center text-[13.5px] text-fg-2">No saved products yet. Classify a product and save it to reuse it here.</div>}
+        <div className="k-list" style={{ ["--inset" as string]: "4px" }}>
           {products.data?.map((p) => (
             <button
               key={p.id}
@@ -372,7 +445,7 @@ function ProductImport({ onPick }: { onPick: (p: Partial<Item>) => void }) {
                 onPick(rest);
                 setOpen(false);
               }}
-              className="flex w-full items-center gap-3 px-1 py-2.5 text-left hover:bg-panel-2/60"
+              className="flex w-full items-center gap-3 rounded-lg px-1 py-2.5 text-left hover:bg-fill-2"
             >
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13.5px] font-medium">{p.name}</div>
@@ -385,5 +458,26 @@ function ProductImport({ onPick }: { onPick: (p: Partial<Item>) => void }) {
         </div>
       </Dialog>
     </>
+  );
+}
+
+/** Multi-line, auto-growing title field that reads as a heading. */
+function TitleInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "0px";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={(e) => onChange(e.target.value.replace(/\n/g, " "))}
+      className="block w-full resize-none overflow-hidden rounded-lg bg-transparent text-[28px] font-bold leading-[1.2] tracking-[-0.022em] outline-none focus:bg-fill-2"
+      aria-label="Case title"
+    />
   );
 }

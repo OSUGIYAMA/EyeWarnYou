@@ -12,7 +12,6 @@ import type {
   JpListControl,
   RegLibrary,
   ScreeningDataset,
-  ScreeningEntry,
   SourceStamp,
 } from "../shared/regs.ts";
 import { allIsoCodes, countryNames } from "./countries.ts";

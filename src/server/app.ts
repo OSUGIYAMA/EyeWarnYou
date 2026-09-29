@@ -36,6 +36,7 @@ import { store } from "./store.ts";
 import { aiRoutes } from "./ai/routes.ts";
 import { seedSamples } from "./demo.ts";
 import { landscape } from "./landscape.ts";
+import { caseProgress } from "../shared/progress.ts";
 
 export const app = new Hono().basePath("/api");
 
@@ -285,7 +286,16 @@ app.get("/screen/entry/:id", (c) => {
 // ---------------------------------------------------------------------------
 // Cases
 
-app.get("/cases", (c) => c.json(listCases()));
+app.get("/cases", (c) =>
+  c.json(
+    listCases().map((s) => {
+      const k = getCase(s.id);
+      if (!k) return s;
+      const p = caseProgress(k, evaluate(k));
+      return { ...s, progress: { next: p.next && { id: p.next.id, label: p.next.label, anchor: p.next.anchor }, done: p.done, total: p.total } };
+    }),
+  ),
+);
 
 app.post("/cases", async (c) => {
   const input = CaseInput.parse(await c.req.json());

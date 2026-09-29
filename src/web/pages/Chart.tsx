@@ -1,4 +1,4 @@
-// Commerce Country Chart (15 CFR 738 Supp. No. 1) as a dense, filterable matrix.
+// Commerce Country Chart (15 CFR 738 Supp. No. 1): a calm, filterable matrix of reasons for control by destination.
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink, Grid3x3, Search, X } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import { CHART_COLUMNS, CHART_REASONS, type ChartColumn, type CountryChartRow } from "@/shared/regs.ts";
 import { Page } from "../components/AppShell.tsx";
 import { useRegSheet } from "../components/RegSheet.tsx";
-import { Button, Card, CardHeader, Empty, Input, PageHeader, Skeleton } from "../components/ui/index.tsx";
+import { Button, Card, Empty, Input, PageHeader, Section, Skeleton } from "../components/ui/index.tsx";
 import { api, type CountryChart } from "../lib/api.ts";
 import { cx, fmtDate } from "../lib/format.ts";
 
@@ -23,14 +23,7 @@ const REASON_GROUPS: { reason: Reason; cols: ChartColumn[] }[] = (() => {
   return out;
 })();
 const GROUP_START = new Set(REASON_GROUPS.map((g) => g.cols[0]));
-
-/** Tone by reason family: multilateral regimes orange, foreign-policy reasons amber, anti-terrorism gray. */
-function squareTone(col: string): string {
-  const r = col.replace(/\d$/, "");
-  if (r === "AT") return "bg-fg-3";
-  if (r === "RS" || r === "CC" || r === "FC") return "bg-amber";
-  return "bg-orange";
-}
+const colLabel = (c: string) => `${c.replace(/\d$/, "")} ${c.slice(-1)}`;
 
 /** Turn "§ 746.8" and "supplement no. 2 to part 746" into links that open the regulation sheet. */
 function SectionRefs({ text }: { text: string }) {
@@ -48,7 +41,7 @@ function SectionRefs({ text }: { text: string }) {
             ? { kind: "section" as const, id: `${supp[2]} Supp. ${supp[1]}`, label: `15 CFR ${supp[2]} Supp. No. ${supp[1]}` }
             : null;
         return target ? (
-          <button key={i} type="button" onClick={() => open(target)} className="text-accent-text decoration-accent/40 underline-offset-2 hover:underline">
+          <button key={i} type="button" onClick={() => open(target)} className="text-accent-text hover:underline">
             {p}
           </button>
         ) : (
@@ -68,23 +61,17 @@ const ChartBody = memo(function ChartBody({ rows, footnotes, onFootnote }: { row
       {rows.map((r) => {
         const xs = new Set<string>(r.x);
         return (
-          <tr key={r.iso2} className="group hover:bg-panel-2">
-            <th scope="row" className="sticky left-0 z-10 border-b border-r border-line bg-panel px-3 py-0 text-left font-normal group-hover:bg-panel-2">
-              <div className="flex h-7 items-center gap-2">
-                <span className="w-6 shrink-0 font-mono text-[10.5px] text-fg-3">{r.iso2}</span>
-                <Link to={`/regulations/countries/${r.iso2}`} className="truncate text-[12.5px] text-fg hover:underline">
+          <tr key={r.iso2} className="group">
+            <th scope="row" className="sticky left-0 z-10 border-b border-r border-b-line/60 border-r-line bg-panel px-4 py-0 text-left font-normal group-hover:bg-panel-2">
+              <div className="flex h-8 items-center gap-2.5">
+                <span className="w-6 shrink-0 text-[12px] font-medium tabular text-fg-3">{r.iso2}</span>
+                <Link to={`/regulations/countries/${r.iso2}`} className="truncate text-[13.5px] text-fg hover:text-accent-text">
                   {r.earName}
                 </Link>
                 {r.footnotes.length > 0 && (
-                  <span className="flex shrink-0 gap-0.5">
+                  <span className="-mt-2 flex shrink-0 gap-1">
                     {r.footnotes.map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        title={footnotes[String(n)]}
-                        onClick={() => onFootnote(n)}
-                        className="-mt-1.5 text-[9.5px] font-medium leading-none text-accent-text hover:underline"
-                      >
+                      <button key={n} type="button" title={footnotes[String(n)]} onClick={() => onFootnote(n)} className="text-[10.5px] font-medium leading-none text-accent-text hover:underline">
                         {n}
                       </button>
                     ))}
@@ -93,8 +80,8 @@ const ChartBody = memo(function ChartBody({ rows, footnotes, onFootnote }: { row
               </div>
             </th>
             {CHART_COLUMNS.map((c) => (
-              <td key={c} data-col={c} className={cx("border-b border-line/70 p-0 text-center hover:bg-accent-soft", GROUP_START.has(c) && "border-l border-l-line")}>
-                {xs.has(c) && <span className={cx("inline-block size-[9px] rounded-[2px] align-middle", squareTone(c))} aria-label={`X in ${c}`} />}
+              <td key={c} data-col={c} className={cx("border-b border-b-line/60 p-0 text-center group-hover:bg-fill-2", GROUP_START.has(c) && "border-l border-l-line/70")}>
+                {xs.has(c) && <span className="inline-block size-[7px] rounded-full bg-fg/75 align-middle" aria-label={`X in ${c}`} />}
               </td>
             ))}
           </tr>
@@ -138,8 +125,8 @@ export function ChartPage() {
     return m;
   }, [all]);
   const byFootnote = useMemo(() => {
-    const m: Record<string, string[]> = {};
-    for (const r of all) for (const n of r.footnotes) (m[n] ??= []).push(r.iso2);
+    const m: Record<string, CountryChartRow[]> = {};
+    for (const r of all) for (const n of r.footnotes) (m[n] ??= []).push(r);
     return m;
   }, [all]);
 
@@ -152,47 +139,47 @@ export function ChartPage() {
         title="Commerce Country Chart"
         description={
           <>
-            Supplement No. 1 to Part 738. Each ECCN names a reason and column (e.g. NS Column 2); an X where that column meets the destination means a license is required unless a license exception
-            applies —{" "}
-            <button type="button" onClick={() => open({ kind: "section", id: "738.4", label: "15 CFR 738.4" })} className="text-accent-text hover:underline">
-              §738.4
-            </button>
-            .
-            {stamp && (
-              <span className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-fg-3">
-                <span>{stamp.source}</span>
-                <span>·</span>
-                <span>
-                  as amended to <span className="tabular text-fg-2">{fmtDate(stamp.asOf)}</span>
-                </span>
-                <span>·</span>
-                <a href={stamp.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 hover:text-fg">
-                  eCFR <ExternalLink className="size-3" />
-                </a>
-              </span>
-            )}
+            Find the destination and the column your ECCN names. An X means a license is required unless an exception applies.
+            <span className="mt-1 block text-[12.5px] text-fg-3">
+              {stamp ? (
+                <>
+                  <span title={stamp.source}>As amended to {fmtDate(stamp.asOf)}</span>
+                  {" · "}
+                  <a href={stamp.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 hover:text-fg">
+                    eCFR <ExternalLink className="size-3" />
+                  </a>
+                </>
+              ) : (
+                "Loading source…"
+              )}
+            </span>
           </>
+        }
+        actions={
+          <Button variant="ghost" onClick={() => open({ kind: "section", id: "738.4", label: "15 CFR 738.4" })}>
+            How to use the chart
+          </Button>
         }
       />
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative w-64">
-          <Search className="pointer-events-none absolute left-2.5 top-2 size-4 text-fg-3" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Escape" && setQ("")} placeholder="Filter countries" className="pl-8" aria-label="Filter countries" />
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="relative w-72">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-3" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Escape" && setQ("")} placeholder="Find a country" className="pl-9" aria-label="Find a country" />
         </div>
         {cols.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[12.5px] text-fg-3">Only countries with X in</span>
+          <div className="flex flex-wrap items-center gap-1.5 text-[13px] text-fg-2">
+            Marked in
             {cols.map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => toggle(c)}
-                className="inline-flex h-6 items-center gap-1 rounded-md bg-accent-soft pl-1.5 pr-1 font-mono text-[11.5px] font-medium text-accent-text ring-1 ring-inset ring-accent/20 hover:ring-accent/40"
+                className="inline-flex h-7 items-center gap-1 rounded-full bg-accent-soft pl-3 pr-2 text-[13px] font-medium text-accent-text hover:opacity-80"
                 aria-label={`Remove filter ${c}`}
               >
-                {c}
-                <X className="size-3" />
+                {colLabel(c)}
+                <X className="size-3.5" />
               </button>
             ))}
             <Button size="sm" variant="ghost" onClick={() => setCols([])}>
@@ -200,23 +187,12 @@ export function ChartPage() {
             </Button>
           </div>
         ) : (
-          <span className="text-[12.5px] text-fg-3">Click a column header to show only countries with an X in that column.</span>
+          <span className="text-[13px] text-fg-3">Select a column number to show only the countries marked in it.</span>
         )}
-        <div className="ml-auto flex items-center gap-3 text-[11.5px] text-fg-3">
-          <span className="flex items-center gap-1.5">
-            <span className="size-[9px] rounded-[2px] bg-orange" /> NS · MT · NP · CB
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-[9px] rounded-[2px] bg-amber" /> RS · FC · CC
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-[9px] rounded-[2px] bg-fg-3" /> AT
-          </span>
-          <span className="tabular">{chart.data ? `${rows.length} of ${all.length}` : ""}</span>
-        </div>
+        <span className="ml-auto text-[13px] tabular text-fg-3">{chart.data ? (rows.length === all.length ? `${all.length} countries` : `${rows.length} of ${all.length} countries`) : ""}</span>
       </div>
 
-      <div className="scroll-thin max-h-[calc(100vh-230px)] min-h-[420px] overflow-auto rounded-xl border border-line bg-panel shadow-card">
+      <div className="scroll-thin max-h-[calc(100vh-150px)] min-h-[420px] overflow-auto border-y border-line bg-panel">
         {chart.isLoading ? (
           <div className="space-y-2 p-4">
             {Array.from({ length: 14 }, (_, i) => (
@@ -224,21 +200,25 @@ export function ChartPage() {
             ))}
           </div>
         ) : chart.isError ? (
-          <Empty icon={<Grid3x3 className="size-5" />} title="The Country Chart could not be loaded">
-            Check that the Kanmon server is running and the regulatory data has been synced (Settings → Data).
+          <Empty icon={<Grid3x3 />} title="The Country Chart could not be loaded">
+            Check that the server is running and the regulatory data has been synced in Settings.
           </Empty>
         ) : (
-          <table className="w-full min-w-[860px] table-fixed border-separate border-spacing-0 text-[12.5px]" onMouseOver={(e) => setHover((e.target as HTMLElement).closest("td")?.dataset.col ?? null)} onMouseLeave={() => setHover(null)}>
+          <table
+            className="w-full min-w-[880px] table-fixed border-separate border-spacing-0"
+            onMouseOver={(e) => setHover((e.target as HTMLElement).closest("td")?.dataset.col ?? null)}
+            onMouseLeave={() => setHover(null)}
+          >
             <colgroup>
-              <col className="w-[248px]" />
+              <col className="w-[260px]" />
               {CHART_COLUMNS.map((c) => (
-                <col key={c} className={cx(hover === c ? "bg-accent-soft/70" : cols.includes(c) && "bg-accent-soft/35")} />
+                <col key={c} className={cx(hover === c ? "bg-fill-2" : cols.includes(c) && "bg-accent-soft/50")} />
               ))}
             </colgroup>
             <thead>
               <tr>
-                <th rowSpan={2} scope="col" className="sticky left-0 top-0 z-30 border-b border-r border-line bg-panel-2 px-3 text-left align-bottom text-[11.5px] font-medium text-fg-3">
-                  <div className="pb-2">Country</div>
+                <th rowSpan={2} scope="col" className="sticky left-0 top-0 z-30 border-b border-r border-line bg-panel px-4 pb-2.5 text-left align-bottom text-[12.5px] font-medium text-fg-3">
+                  Country
                 </th>
                 {REASON_GROUPS.map((g) => (
                   <th
@@ -246,7 +226,7 @@ export function ChartPage() {
                     colSpan={g.cols.length}
                     scope="colgroup"
                     title={CHART_REASONS[g.reason]}
-                    className="sticky top-0 z-20 h-8 border-b border-l border-line bg-panel-2 px-1 text-center text-[11.5px] font-semibold tracking-wide text-fg-2"
+                    className="sticky top-0 z-20 h-9 border-l border-line bg-panel px-1 pt-1 text-center text-[12.5px] font-semibold text-fg"
                   >
                     {g.reason}
                   </th>
@@ -256,19 +236,23 @@ export function ChartPage() {
                 {CHART_COLUMNS.map((c) => {
                   const on = cols.includes(c);
                   return (
-                    <th key={c} scope="col" className={cx("sticky top-8 z-20 h-8 border-b border-line bg-panel-2 p-0", GROUP_START.has(c) && "border-l")}>
+                    <th key={c} scope="col" className={cx("sticky top-9 z-20 h-8 border-b border-line bg-panel p-0", GROUP_START.has(c) && "border-l")}>
                       <button
                         type="button"
                         onClick={() => toggle(c)}
                         onMouseEnter={() => setHover(c)}
                         aria-pressed={on}
-                        title={`${CHART_REASONS[c.replace(/\d$/, "")]} — Column ${c.slice(-1)} · ${colCount[c] ?? 0} countries marked. Click to filter.`}
-                        className={cx(
-                          "flex h-8 w-full min-w-[38px] items-center justify-center font-mono text-[11px] transition-colors",
-                          on ? "bg-accent-soft font-semibold text-accent-text" : hover === c ? "bg-accent-soft/70 text-fg" : "text-fg-3 hover:text-fg",
-                        )}
+                        title={`${CHART_REASONS[c.replace(/\d$/, "")]}, column ${c.slice(-1)} — ${colCount[c] ?? 0} countries marked. Select to filter.`}
+                        className="flex h-8 w-full min-w-[38px] items-center justify-center"
                       >
-                        {c.slice(-1)}
+                        <span
+                          className={cx(
+                            "inline-flex size-6 items-center justify-center rounded-full text-[12px] tabular transition-colors",
+                            on ? "bg-accent font-semibold text-accent-fg" : hover === c ? "bg-fill text-fg" : "text-fg-3 hover:text-fg",
+                          )}
+                        >
+                          {c.slice(-1)}
+                        </span>
                       </button>
                     </th>
                   );
@@ -279,8 +263,8 @@ export function ChartPage() {
               <tbody>
                 <tr>
                   <td colSpan={CHART_COLUMNS.length + 1}>
-                    <Empty icon={<Search className="size-5" />} title="No countries match">
-                      {cols.length ? `No country has an X in all of ${cols.join(", ")}.` : "Try another name or ISO code."}
+                    <Empty icon={<Search />} title="No countries match">
+                      {cols.length ? `No country is marked in all of ${cols.map(colLabel).join(", ")}.` : "Try another name or a two-letter code."}
                     </Empty>
                   </td>
                 </tr>
@@ -293,37 +277,34 @@ export function ChartPage() {
       </div>
 
       {fnKeys.length > 0 && (
-        <Card className="mt-6">
-          <CardHeader title="Footnotes" subtitle="As printed under the Commerce Country Chart" />
-          <ol className="divide-y divide-line">
+        <Section title="Footnotes" description="As printed under the chart." className="mt-10">
+          <Card className="k-list overflow-hidden [--inset:52px]">
             {fnKeys.map((n) => (
-              <li
-                key={n}
-                id={`chart-fn-${n}`}
-                className={cx("flex gap-3 px-4 py-2.5 text-[12.5px] leading-relaxed transition-colors", flash === Number(n) ? "bg-amber-soft" : "")}
-              >
-                <span className="w-5 shrink-0 pt-px text-right font-mono text-[11.5px] font-semibold text-fg-2">{n}</span>
+              <div key={n} id={`chart-fn-${n}`} className={cx("flex scroll-mt-24 gap-3 px-4 py-3 transition-colors duration-500", flash === Number(n) && "bg-amber-soft")}>
+                <span className="w-6 shrink-0 text-right text-[13px] font-semibold tabular text-fg-2">{n}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-fg-2">
+                  <div className="text-[14px] leading-relaxed">
                     <SectionRefs text={footnotes[n]} />
                   </div>
                   {(byFootnote[n]?.length ?? 0) > 0 && (
-                    <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-fg-3">
-                      Applies to
-                      {byFootnote[n].map((iso) => (
-                        <Link key={iso} to={`/regulations/countries/${iso}`} className="rounded bg-panel-2 px-1 font-mono text-[10.5px] text-fg-2 ring-1 ring-line hover:text-fg">
-                          {iso}
-                        </Link>
+                    <div className="mt-1 text-[12.5px] leading-relaxed text-fg-3">
+                      Applies to{" "}
+                      {byFootnote[n].map((r, i) => (
+                        <span key={r.iso2}>
+                          {i > 0 && ", "}
+                          <Link to={`/regulations/countries/${r.iso2}`} className="text-fg-2 hover:text-accent-text hover:underline">
+                            {r.earName}
+                          </Link>
+                        </span>
                       ))}
                     </div>
                   )}
                 </div>
-              </li>
+              </div>
             ))}
-          </ol>
-        </Card>
+          </Card>
+        </Section>
       )}
     </Page>
   );
 }
-

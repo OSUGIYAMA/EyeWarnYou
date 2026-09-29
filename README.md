@@ -30,6 +30,23 @@ It also treats **time** as an input. Several consequential rules are currently s
 4. **"Incomplete" is an outcome.** Unanswered questions, unresolved red flags, pending screening matches and regulation text the engine does not recognise are surfaced for review — never silently guessed.
 5. **Local-first.** Cases, documents and API keys stay on the machine running Kanmon. The only outbound traffic is to the public data sources and, if enabled, the Anthropic API.
 
+## How it works in practice
+
+1. **Start from the question.** The home screen offers three doors — *check a shipment*, *screen a company*, *classify a product* — and below them the open cases, each with the one thing it needs next.
+2. **Three answers open a case.** What is shipped, where it goes, who will use it. Kanmon screens the parties immediately and computes a first determination.
+3. **The answer comes first.** A case opens on the verdict (e.g. *License required — under China's Export Control Law, MOFCOM consent may be required*), the outcome under each law, and a single button for the next step: screen the parties, review a possible list match, answer the two questions only the exporter can answer, submit for review.
+4. **Reasons on demand.** Beside the inputs, each law's reasoning — why it attaches, every finding with its citation, license-exception conditions to confirm, what to do — updates as you type.
+5. **A record that survives.** The reviewer approves or rejects with reasons; the Transaction Review Record prints the determination together with the data versions it relied on.
+
+The interface design principles are in [src/web/DESIGN.md](src/web/DESIGN.md).
+
+| | |
+|---|---|
+| ![Home — start from the question](docs/images/home.png) | ![Screening across US, Japanese and Chinese lists](docs/images/screening.png) |
+| **Home.** Three doors, then the open cases with the one thing each needs next. | **Screening.** One search across 17 lists; scores explained; every search logged. |
+| ![What's changing — dated regulatory events and the cases they touch](docs/images/intelligence.png) | ![Supply-chain exposure to Chinese controlled materials](docs/images/exposure.png) |
+| **What's changing.** Suspensions that lapse and rules that take effect, with the open cases each one touches. | **Supply-chain exposure.** Which transactions depend on China-controlled materials, today and if a suspension ends. |
+
 ## What it does
 
 **Trade controls**
@@ -45,7 +62,7 @@ It also treats **time** as an input. Several consequential rules are currently s
 
 **Intelligence**
 - **Timeline** of dated regulatory events across jurisdictions, with the open cases each would affect.
-- **Detected changes** — each data sync is diffed against the previous snapshot (Country Chart cells, Country Groups, ECCN requirements, Japanese country lists, list additions/removals).
+- **Changes** (Regulations → Changes) — each data sync is diffed against the previous snapshot (Country Chart cells, Country Groups, ECCN requirements, Japanese country lists, list additions/removals).
 
 **Reference & records**
 - Browsers for the CCL, the Country Chart, country profiles, Japan's 別表第一 and catch-all, and the full EAR / Japanese-law library; **Ask the regulations**, a Q&A that answers only from retrieved provisions and cites them.
@@ -53,7 +70,7 @@ It also treats **time** as an input. Several consequential rules are currently s
 
 ## What the lists show
 
-Because Kanmon holds the US, Japanese and Chinese lists side by side and matches names with the same engine, it can measure how far they agree (Intelligence → List landscape; name-match score ≥ 92, data as of 2026-09-29):
+Because Kanmon holds the US, Japanese and Chinese lists side by side and matches names with the same engine, it can measure how far they agree (What’s changing → List landscape; name-match score ≥ 92, data as of 2026-09-29):
 
 - **57%** of the 835 entities on METI's End User List also appear on a US list (319 on OFAC's SDN List, 221 on the Entity List).
 - The reverse is far smaller: **3.2%** of Entity List entries with a Chinese or Hong Kong address, **8.8%** of Russian and **19%** of Iranian entries are on METI's list. Japan's list is built around weapons-of-mass-destruction and (since 2025) conventional-weapons end users; the Entity List also targets technology acquisition, surveillance and military modernization.
@@ -84,7 +101,7 @@ npm test             # scenario tests for the rules engine
 npm run dev          # development mode (API on :8787, Vite on :5173)
 ```
 
-AI features need an Anthropic API key — add it in **Settings → AI assistance** (stored in the local database) or set `ANTHROPIC_API_KEY`. Everything else works without one. See `.env.example` for deployment options (port, bind address, basic-auth password).
+AI features need an Anthropic API key — add it in **Settings → AI** (stored in the local database) or set `ANTHROPIC_API_KEY`. Everything else works without one. See `.env.example` for deployment options (port, bind address, basic-auth password).
 
 ## Documentation
 
@@ -124,3 +141,12 @@ Kanmon is decision support, not legal advice; the exporter remains responsible f
 - **More jurisdictions** — EU dual-use (Regulation 2021/821) and Russia sanctions (Art. 12g), UK, South Korea, Taiwan's SHTC Entity List.
 - **Ownership graph** — corporate-ownership data to apply the 50% rules.
 - **Bill of materials** — component-level origin and US-content roll-ups for de minimis and exposure analysis.
+
+## License and disclaimer
+
+Kanmon is released under the [Apache License 2.0](LICENSE). The regulation and list snapshots in `data/snapshots/` are derived from public government sources; their provenance, attribution statements and terms are listed in [NOTICE](NOTICE). Official publications of the issuing authorities control.
+
+Kanmon is a decision-support tool, not legal advice, and it does not create a lawyer–client relationship. Its determinations, screening results and AI-generated drafts can be incomplete, out of date or wrong; export-control rules and lists change often. Users remain responsible for their own compliance and should confirm conclusions against the official texts and, where appropriate, with the licensing authorities or qualified counsel. The software is provided "as is", without warranty or liability (Apache License 2.0, sections 7 and 8).
+
+The sample cases (`npm run demo`) are fictional; every party name in them is invented. Real entity names appear in the app only as they appear on the public lists. Kanmon is an independent project, not affiliated with or endorsed by any government agency or company named in it.
+

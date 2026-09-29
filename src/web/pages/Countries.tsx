@@ -1,27 +1,22 @@
-// Country reference: every destination's EAR Country Groups, Country Chart row and Japanese FEFTA tiers.
+// Country reference: find a destination, then see what applies to it — US EAR Country Groups, Country Chart
+// and Part 746 controls, and the Japanese FEFTA destination lists.
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, ArrowUpDown, Check, ExternalLink, Globe2, ScanSearch, Search, ShieldAlert } from "lucide-react";
+import { Check, ChevronRight, ExternalLink, Globe2, ScanSearch, Search, X } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import type { Status } from "@/shared/assessment.ts";
 import { CHART_COLUMNS, CHART_REASONS, COUNTRY_GROUP_IDS, type ChartColumn } from "@/shared/regs.ts";
 import { Page, useMeta } from "../components/AppShell.tsx";
 import { useCountries } from "../components/CountryPicker.tsx";
 import { useRegSheet } from "../components/RegSheet.tsx";
-import { Badge, Button, Card, CardHeader, Empty, Input, PageHeader, Segmented, SectionLabel, Skeleton } from "../components/ui/index.tsx";
+import { Button, Card, Empty, PageHeader, Section, Segmented, Skeleton, StatusDot, Tooltip } from "../components/ui/index.tsx";
 import { api, type CountryChart, type CountryGroups, type CountryInfo, type SourceStamp } from "../lib/api.ts";
-import { cx, fmtDate, type Tone } from "../lib/format.ts";
+import { cx, fmtDate } from "../lib/format.ts";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
 
 const ORDER_SECTION = "jp:324CO0000000378";
-
-function squareTone(col: string): string {
-  const r = col.replace(/\d$/, "");
-  if (r === "AT") return "bg-fg-3";
-  if (r === "RS" || r === "CC" || r === "FC") return "bg-amber";
-  return "bg-orange";
-}
 
 /** "1,3,4,5" → "1, 3–5" (runs of three or more collapse). */
 function runs(nums: number[]): string {
@@ -36,55 +31,37 @@ function runs(nums: number[]): string {
   return out.join(",");
 }
 
-function GroupChips({ groups }: { groups: string[] }) {
-  if (!groups.length) return <span className="text-fg-3">—</span>;
-  const fams: { fam: string; text: string; cls: string }[] = [];
+function groupSummary(groups: string[]): string {
+  const fams: string[] = [];
   for (const f of ["A", "B", "D", "E"]) {
     const mine = groups.filter((g) => g[0] === f);
     if (!mine.length) continue;
     const nums = mine.map((g) => Number(g.split(":")[1] ?? 0)).sort((a, b) => a - b);
-    fams.push({
-      fam: f,
-      text: f === "B" ? "B" : `${f}:${runs(nums)}`,
-      cls: f === "E" ? "bg-red-soft text-red-text ring-red/20" : f === "D" ? "bg-orange-soft text-orange-text ring-orange/20" : "bg-panel-2 text-fg-2 ring-line",
-    });
+    fams.push(f === "B" ? "B" : `${f}:${runs(nums)}`);
   }
-  return (
-    <span className="inline-flex flex-wrap gap-1" title={groups.join(", ")}>
-      {fams.map((x) => (
-        <span key={x.fam} className={cx("inline-flex h-5 items-center rounded px-1.5 font-mono text-[11px] font-medium ring-1 ring-inset", x.cls)}>
-          {x.text}
-        </span>
-      ))}
-    </span>
-  );
+  return fams.join(" · ");
 }
 
-function jpTiers(c: CountryInfo): { key: string; label: string; ja: string; tone: Tone }[] {
-  const t: { key: string; label: string; ja: string; tone: Tone }[] = [];
-  if (c.jp.groupA) t.push({ key: "a", label: "Group A", ja: "別表第三", tone: "green" });
-  if (c.jp.unArmsEmbargo) t.push({ key: "un", label: "UN arms embargo", ja: "別表第三の二", tone: "orange" });
-  if (c.jp.concern) t.push({ key: "concern", label: "Concern", ja: "別表第四", tone: "red" });
-  if (c.jp.russiaDiversion) t.push({ key: "ru", label: "Russia diversion", ja: "別表第二の四", tone: "amber" });
+function jpTiers(c: CountryInfo): { key: string; label: string; ja: string }[] {
+  const t: { key: string; label: string; ja: string }[] = [];
+  if (c.jp.groupA) t.push({ key: "a", label: "Group A", ja: "別表第三" });
+  if (c.jp.unArmsEmbargo) t.push({ key: "un", label: "UN arms embargo", ja: "別表第三の二" });
+  if (c.jp.concern) t.push({ key: "concern", label: "Concern country", ja: "別表第四" });
+  if (c.jp.russiaDiversion) t.push({ key: "ru", label: "Russia diversion", ja: "別表第二の四" });
   return t;
 }
 
-function MiniChart({ x }: { x: string[] }) {
-  const set = new Set(x);
-  return (
-    <span className="inline-flex gap-[2px]" title={x.length ? `X in ${x.join(", ")}` : "No X marks"}>
-      {CHART_COLUMNS.map((c) => (
-        <span key={c} className={cx("h-2.5 w-[5px] rounded-[1px]", set.has(c) ? squareTone(c) : "bg-panel-3")} />
-      ))}
-    </span>
-  );
+/** Reason families with at least one X, in chart order. */
+function markedReasons(x: string[]): string[] {
+  return [...new Set(CHART_COLUMNS.filter((c) => x.includes(c)).map((c) => c.replace(/\d$/, "")))];
 }
 
-function SortHeader({ label, active, onClick, align = "left" }: { label: string; active: boolean; onClick: () => void; align?: "left" | "right" }) {
+const listJoin = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
+
+function CiteButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={cx("inline-flex items-center gap-1 font-medium hover:text-fg", active && "text-fg", align === "right" && "flex-row-reverse")}>
-      {label}
-      <ArrowUpDown className={cx("size-3", active ? "opacity-100" : "opacity-40")} />
+    <button type="button" onClick={onClick} className="whitespace-nowrap text-[13px] text-accent-text hover:underline">
+      {children}
     </button>
   );
 }
@@ -94,6 +71,8 @@ function SortHeader({ label, active, onClick, align = "left" }: { label: string;
 
 type Filter = "all" | "sanctioned" | "jpA" | "jpOther";
 const isSanctioned = (c: CountryInfo) => c.groups.includes("E:1") || c.groups.includes("E:2") || c.groups.includes("D:5");
+
+const LIST_COLS = "grid grid-cols-[minmax(0,1fr)_28px] items-center gap-x-4 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1.1fr)_84px_64px_16px]";
 
 export function CountriesPage() {
   const countries = useCountries();
@@ -125,29 +104,52 @@ export function CountriesPage() {
     return out.sort((a, b) => (sort === "marks" ? b.chart.length - a.chart.length || a.en.localeCompare(b.en) : a.en.localeCompare(b.en)));
   }, [list, filter, q, sort]);
 
-  const count = (n: number) => <span className="ml-1 tabular text-fg-3">{n}</span>;
+  const count = (n: number) => <span className="ml-1.5 font-normal tabular text-fg-3">{n}</span>;
 
   return (
-    <Page wide>
-      <PageHeader
-        title="Countries"
-        description="Every destination with its EAR Country Groups (Supp. No. 1 to Part 740), Country Chart marks and its tier under Japan’s Export Trade Control Order (輸出貿易管理令)."
-      />
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+    <Page>
+      <PageHeader title="Countries" description="Pick a destination to see which US and Japanese controls apply to it." />
+
+      <div className="flex items-center gap-2.5 rounded-2xl bg-fill-2 px-4 transition-shadow focus-within:ring-4 focus-within:ring-accent/15">
+        <Search className="size-5 shrink-0 text-fg-3" />
+        <input
+          autoFocus
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setQ("");
+            if (e.key === "Enter" && rows[0]) nav(`/regulations/countries/${rows[0].iso2}`);
+          }}
+          placeholder="Country, 国名 or two-letter code"
+          aria-label="Find a country"
+          className="h-12 min-w-0 flex-1 bg-transparent text-[17px] tracking-tight outline-none placeholder:text-fg-3"
+        />
+        {q && (
+          <button type="button" onClick={() => setQ("")} className="rounded-full p-1 text-fg-3 hover:bg-fill hover:text-fg" aria-label="Clear">
+            <X className="size-4" />
+          </button>
+        )}
+      </div>
+
+      <div className="mb-4 mt-4 flex flex-wrap items-center justify-between gap-3">
         <Segmented<Filter>
           value={filter}
           onChange={(v) => setParams(v === "all" ? {} : { f: v }, { replace: true })}
           options={[
             { value: "all", label: <>All{count(counts.all)}</> },
-            { value: "sanctioned", label: <>Sanctioned (E:1, E:2, D:5){count(counts.sanctioned)}</> },
+            { value: "sanctioned", label: <>Embargoed or sanctioned{count(counts.sanctioned)}</> },
             { value: "jpA", label: <>Japan Group A{count(counts.jpA)}</> },
-            { value: "jpOther", label: <>Japan non-Group A{count(counts.jpOther)}</> },
+            { value: "jpOther", label: <>Other destinations{count(counts.jpOther)}</> },
           ]}
         />
-        <div className="relative ml-auto w-72">
-          <Search className="pointer-events-none absolute left-2.5 top-2 size-4 text-fg-3" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Escape" && setQ("")} placeholder="Filter by name, 国名 or ISO code" className="pl-8" aria-label="Filter countries" />
-        </div>
+        <Segmented<"name" | "marks">
+          value={sort}
+          onChange={setSort}
+          options={[
+            { value: "name", label: "A–Z" },
+            { value: "marks", label: "Most chart marks" },
+          ]}
+        />
       </div>
 
       <Card className="overflow-hidden">
@@ -158,89 +160,58 @@ export function CountriesPage() {
             ))}
           </div>
         ) : rows.length === 0 ? (
-          <Empty icon={<Globe2 className="size-5" />} title={list.length ? "No countries match" : "No country data"}>
-            {list.length ? "Try another name, a Japanese name or a two-letter ISO code." : "Sync the regulatory data from Settings → Data."}
+          <Empty icon={<Globe2 />} title={list.length ? "No countries match" : "No country data"}>
+            {list.length ? "Try another name, a Japanese name or a two-letter code." : "Sync the regulatory data in Settings."}
           </Empty>
         ) : (
-          <div className="scroll-thin overflow-x-auto">
-            <table className="w-full min-w-[980px] text-[13px]">
-              <thead>
-                <tr className="border-b border-line bg-panel-2/60 text-left text-[11.5px] font-medium text-fg-3">
-                  <th className="px-4 py-2 font-medium">
-                    <SortHeader label="Country" active={sort === "name"} onClick={() => setSort("name")} />
-                  </th>
-                  <th className="px-4 py-2 font-medium">EAR Country Groups</th>
-                  <th className="px-4 py-2 font-medium">Japan tier</th>
-                  <th className="px-4 py-2 font-medium" title="UN Security Council arms embargo per 15 CFR 746.1(b)(2)">
-                    UN arms embargo (US)
-                  </th>
-                  <th className="px-4 py-2 text-right font-medium">
-                    <SortHeader label="Country Chart X" active={sort === "marks"} onClick={() => setSort("marks")} align="right" />
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {rows.map((c) => {
-                  const tiers = jpTiers(c);
-                  return (
-                    <tr key={c.iso2} className="cursor-pointer transition-colors hover:bg-panel-2/50" onClick={() => nav(`/regulations/countries/${c.iso2}`)}>
-                      <td className="px-4 py-2">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-7 shrink-0 rounded bg-panel-2 text-center font-mono text-[10.5px] text-fg-2 ring-1 ring-line">{c.iso2}</span>
-                          <div className="min-w-0">
-                            <Link to={`/regulations/countries/${c.iso2}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">
-                              {c.en}
-                            </Link>
-                            <div className="text-[11.5px] text-fg-3">{c.ja}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2">
-                        <GroupChips groups={c.groups} />
-                      </td>
-                      <td className="px-4 py-2">
-                        {c.iso2 === "JP" ? (
-                          <span className="text-[12px] text-fg-3">Exporting country</span>
-                        ) : tiers.length ? (
-                          <span className="flex flex-wrap gap-1">
-                            {tiers.map((t) => (
-                              <Badge key={t.key} tone={t.tone}>
-                                {t.label} <span className="font-normal opacity-75">{t.ja}</span>
-                              </Badge>
-                            ))}
-                          </span>
-                        ) : (
-                          <span className="text-[12px] text-fg-3">Non-Group A</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2">
-                        {c.unArmsEmbargoUS ? (
-                          <span className="inline-flex items-center gap-1.5 text-[12.5px] text-orange-text">
-                            <span className="size-1.5 rounded-full bg-orange" />
-                            §746.1(b)
-                          </span>
-                        ) : (
-                          <span className="text-fg-3">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-2">
-                        <div className="flex items-center justify-end gap-3">
-                          <MiniChart x={c.chart} />
-                          <span className={cx("w-5 text-right tabular", c.chart.length ? "text-fg" : "text-fg-3")}>{c.chart.length}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            <div className={cx(LIST_COLS, "hidden border-b border-line px-4 py-2 text-[12.5px] font-medium text-fg-3 md:grid")}>
+              <span className="pl-10">Country</span>
+              <Tooltip content="EAR Country Groups, Supplement No. 1 to Part 740">
+                <span className="cursor-default">EAR Country Groups</span>
+              </Tooltip>
+              <Tooltip content="Destination lists of Japan’s Export Trade Control Order (輸出貿易管理令)">
+                <span className="cursor-default">Japan</span>
+              </Tooltip>
+              <Tooltip content="UN arms embargo under 15 CFR 746.1(b)(2)">
+                <span className="cursor-default">UN embargo</span>
+              </Tooltip>
+              <Tooltip content="Country Chart columns marked with an X, of 16">
+                <span className="cursor-default text-right">Chart X</span>
+              </Tooltip>
+              <span />
+            </div>
+            <div className="k-list [--inset:56px]">
+              {rows.map((c) => {
+                const tiers = jpTiers(c);
+                return (
+                  <Link key={c.iso2} to={`/regulations/countries/${c.iso2}`} className={cx(LIST_COLS, "px-4 py-2.5 transition-colors hover:bg-fill-2")}>
+                    <div className="flex min-w-0 items-center gap-4">
+                      <span className="w-6 shrink-0 text-[12px] font-medium tabular text-fg-3">{c.iso2}</span>
+                      <div className="min-w-0">
+                        <div className="truncate text-[14px] font-medium">{c.en}</div>
+                        <div className="truncate text-[12.5px] text-fg-3">{c.ja}</div>
+                      </div>
+                    </div>
+                    <span className="hidden truncate text-[13px] tabular text-fg-2 md:block" title={c.groups.join(", ")}>
+                      {c.groups.length ? groupSummary(c.groups) : "—"}
+                    </span>
+                    <span className="hidden truncate text-[13px] md:block">
+                      {c.iso2 === "JP" ? <span className="text-fg-3">Exporting country</span> : tiers.length ? tiers.map((t) => t.label).join(", ") : <span className="text-fg-3">Not Group A</span>}
+                    </span>
+                    <span className="hidden text-[13px] md:block">{c.unArmsEmbargoUS ? "Yes" : <span className="text-fg-3">—</span>}</span>
+                    <span className="hidden text-right text-[13px] tabular md:block" title={c.chart.length ? `X in ${c.chart.join(", ")}` : "No X marks"}>
+                      {c.chart.length || <span className="text-fg-3">0</span>}
+                    </span>
+                    <ChevronRight className="size-4 justify-self-end text-fg-3" />
+                  </Link>
+                );
+              })}
+            </div>
+          </>
         )}
       </Card>
-      <p className="mt-3 text-[11.5px] text-fg-3">
-        Chart marks: <span className="text-orange-text">orange</span> NS, MT, NP, CB · <span className="text-amber-text">amber</span> RS, FC, CC · gray AT. Countries without a Country Chart row
-        (e.g. Hong Kong, treated as China) show no marks.
-      </p>
+      <p className="mt-3 px-1 text-[12.5px] text-fg-3">Countries without a Country Chart row of their own (Hong Kong is treated as China) show no marks.</p>
     </Page>
   );
 }
@@ -328,21 +299,13 @@ const JP_SANCTIONS: Record<string, { title: string; text: string }> = {
   },
 };
 
-function StampNote({ stamp }: { stamp?: SourceStamp }) {
+function StampNote({ label, stamp }: { label: string; stamp?: SourceStamp }) {
   if (!stamp) return null;
   return (
-    <a href={stamp.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11.5px] text-fg-3 hover:text-fg">
-      as of {fmtDate(stamp.asOf)}
+    <a href={stamp.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-fg">
+      {label} as of {fmtDate(stamp.asOf)}
       <ExternalLink className="size-3" />
     </a>
-  );
-}
-
-function CiteButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="whitespace-nowrap text-[12px] text-accent-text decoration-accent/40 underline-offset-2 hover:underline">
-      {children}
-    </button>
   );
 }
 
@@ -362,7 +325,7 @@ function SectionRefs({ text }: { text: string }) {
             ? { kind: "section" as const, id: `${supp[2]} Supp. ${supp[1]}`, label: `15 CFR ${supp[2]} Supp. No. ${supp[1]}` }
             : null;
         return target ? (
-          <button key={i} type="button" onClick={() => open(target)} className="text-accent-text decoration-accent/40 underline-offset-2 hover:underline">
+          <button key={i} type="button" onClick={() => open(target)} className="text-accent-text hover:underline">
             {p}
           </button>
         ) : (
@@ -373,6 +336,7 @@ function SectionRefs({ text }: { text: string }) {
   );
 }
 
+/** The destination's row of the Country Chart, drawn like the chart itself. */
 function ChartRow({ x }: { x: string[] }) {
   const set = new Set(x);
   const groups: { reason: string; cols: ChartColumn[] }[] = [];
@@ -384,19 +348,19 @@ function ChartRow({ x }: { x: string[] }) {
   }
   return (
     <div className="scroll-thin overflow-x-auto">
-      <table className="w-full min-w-[520px] border-separate border-spacing-0 overflow-hidden rounded-lg border border-line text-center text-[11.5px]">
+      <table className="w-full min-w-[560px] border-separate border-spacing-0 text-center">
         <thead>
-          <tr className="bg-panel-2">
+          <tr>
             {groups.map((g, i) => (
-              <th key={g.reason} colSpan={g.cols.length} title={CHART_REASONS[g.reason]} className={cx("h-7 border-b border-line font-semibold text-fg-2", i > 0 && "border-l")}>
+              <th key={g.reason} colSpan={g.cols.length} title={CHART_REASONS[g.reason]} className={cx("h-8 text-[12.5px] font-semibold", i > 0 && "border-l border-line")}>
                 {g.reason}
               </th>
             ))}
           </tr>
-          <tr className="bg-panel-2/50">
+          <tr>
             {groups.flatMap((g, gi) =>
               g.cols.map((c, ci) => (
-                <th key={c} className={cx("h-6 border-b border-line font-mono font-normal text-fg-3", gi > 0 && ci === 0 && "border-l")}>
+                <th key={c} className={cx("h-6 border-b border-line text-[12px] font-normal tabular text-fg-3", gi > 0 && ci === 0 && "border-l")}>
                   {c.slice(-1)}
                 </th>
               )),
@@ -407,8 +371,8 @@ function ChartRow({ x }: { x: string[] }) {
           <tr>
             {groups.flatMap((g, gi) =>
               g.cols.map((c, ci) => (
-                <td key={c} className={cx("h-9", gi > 0 && ci === 0 && "border-l border-line")} title={set.has(c) ? `${c}: X — license required for items controlled under this column` : `${c}: no X`}>
-                  {set.has(c) ? <span className={cx("inline-block size-2.5 rounded-[2px] align-middle", squareTone(c))} /> : <span className="text-fg-3/60">·</span>}
+                <td key={c} className={cx("h-10", gi > 0 && ci === 0 && "border-l border-line")} title={set.has(c) ? `${c}: X — license required for items controlled under this column` : `${c}: no X`}>
+                  {set.has(c) ? <span className="inline-block size-[8px] rounded-full bg-fg/75 align-middle" /> : null}
                 </td>
               )),
             )}
@@ -419,23 +383,26 @@ function ChartRow({ x }: { x: string[] }) {
   );
 }
 
-function FeftaRow({ on, title, ja, cite, children }: { on: boolean; title: string; ja: string; cite: { id: string; label: string }; children?: ReactNode }) {
-  const open = useRegSheet();
+interface Fact {
+  status: Status;
+  title: ReactNode;
+  text?: ReactNode;
+  cite?: { label: string; onClick: () => void };
+}
+
+function FactRow({ f }: { f: Fact }) {
   return (
-    <div className="flex gap-3 px-4 py-3">
-      <span className={cx("mt-1 size-2 shrink-0 rounded-full", on ? "bg-fg" : "bg-transparent ring-[1.5px] ring-inset ring-line-strong")} aria-hidden />
+    <div className="flex gap-3 px-4 py-3.5">
+      <StatusDot status={f.status} className="size-[17px]" />
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-          <div className="text-[13px]">
-            <span className={cx("font-medium", !on && "text-fg-2")}>{title}</span> <span className="text-fg-3">{ja}</span>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <span className={cx("text-[12px]", on ? "font-medium text-fg" : "text-fg-3")}>{on ? "Listed" : "Not listed"}</span>
-            <CiteButton onClick={() => open({ kind: "section", id: cite.id, label: cite.label })}>{cite.label}</CiteButton>
-          </div>
-        </div>
-        {children && <div className="mt-1 text-[12.5px] leading-relaxed text-fg-2">{children}</div>}
+        <div className="text-[14px] font-medium leading-snug">{f.title}</div>
+        {f.text && <div className="mt-0.5 text-[13px] leading-relaxed text-fg-2">{f.text}</div>}
       </div>
+      {f.cite && (
+        <div className="shrink-0 pt-px">
+          <CiteButton onClick={f.cite.onClick}>{f.cite.label}</CiteButton>
+        </div>
+      )}
     </div>
   );
 }
@@ -444,6 +411,7 @@ export function CountryPage() {
   const { iso: rawIso = "" } = useParams();
   const iso = rawIso.toUpperCase();
   const open = useRegSheet();
+  const nav = useNavigate();
   const meta = useMeta();
   const countries = useCountries();
   const groups = useQuery({ queryKey: ["groups"], queryFn: () => api.get<CountryGroups>("/groups"), staleTime: Infinity });
@@ -455,14 +423,11 @@ export function CountryPage() {
 
   if (countries.isLoading)
     return (
-      <Page wide>
+      <Page>
         <Skeleton className="h-4 w-24" />
-        <Skeleton className="mt-3 h-7 w-64" />
+        <Skeleton className="mt-4 h-9 w-64" />
         <Skeleton className="mt-2 h-4 w-80" />
-        <div className="mt-6 grid gap-6 xl:grid-cols-2">
-          <Skeleton className="h-96" />
-          <Skeleton className="h-72" />
-        </div>
+        <Skeleton className="mt-10 h-72 rounded-xl" />
       </Page>
     );
 
@@ -470,16 +435,8 @@ export function CountryPage() {
     return (
       <Page>
         <Card>
-          <Empty
-            icon={<Globe2 className="size-5" />}
-            title={`No country with code “${iso}”`}
-            action={
-              <Link to="/regulations/countries">
-                <Button>All countries</Button>
-              </Link>
-            }
-          >
-            Countries are listed when they appear on the Commerce Country Chart, in the EAR Country Groups, or in Japan’s country lists.
+          <Empty icon={<Globe2 />} title={`No country with code “${iso}”`} action={<Button onClick={() => nav("/regulations/countries")}>All countries</Button>}>
+            Countries are listed when they appear on the Country Chart, in the EAR Country Groups or in Japan’s country lists.
           </Empty>
         </Card>
       </Page>
@@ -493,229 +450,223 @@ export function CountryPage() {
   const embargo = EMBARGO[iso];
   const jpSanction = JP_SANCTIONS[iso];
   const home = iso === "JP";
-  const tiers = jpTiers(c);
   const catchAll = c.jp.groupA
     ? "METI notification (インフォーム) only — a license is needed for 16の項 goods only when METI informs the exporter."
     : c.jp.unArmsEmbargo
       ? "WMD and conventional-weapons use / end-user checks plus METI notification, for all 16の項 goods."
       : "WMD use / end-user checks and METI notification for all 16の項 goods; conventional-weapons use / end-user checks for 16の項（1）HS-designated goods only.";
+  const cite = (id: string, label: string, highlight?: string) => () => open({ kind: "section", id, label, highlight });
+
+  // What applies — US first, then Japan. Plain sentences; the detail sections below carry the tables.
+  const us: Fact[] = [];
+  if (embargo) us.push({ status: "block", title: embargo.title, text: embargo.text, cite: { label: `§${embargo.sec}`, onClick: cite(embargo.sec, `15 CFR ${embargo.sec}`) } });
+  if (chart.isLoading) us.push({ status: "incomplete", title: "Reading the Country Chart…" });
+  else if (row && row.x.length)
+    us.push({
+      status: "flag",
+      title: `License required for items controlled for ${listJoin(markedReasons(row.x))}`,
+      text: `The Country Chart marks ${row.x.length} of ${CHART_COLUMNS.length} columns for this destination. Whether your item is caught depends on the columns its ECCN names.`,
+      cite: { label: "§738.4", onClick: cite("738.4", "15 CFR 738.4") },
+    });
+  else if (row) us.push({ status: "pass", title: "No Country Chart license requirement", text: "No column is marked for this destination." });
+  else
+    us.push({
+      status: "info",
+      title: "No row on the Country Chart",
+      text: iso === "HK" ? "Since December 2020 the EAR treat Hong Kong as China for licensing purposes." : `${c.en} has no row of its own on the Commerce Country Chart.`,
+    });
+  if (c.unArmsEmbargoUS)
+    us.push({
+      status: "flag",
+      title: "UN arms embargo",
+      text: "A license is required for items with a “UN” reason for control; applications contrary to the Security Council resolution are denied.",
+      cite: { label: "§746.1(b)", onClick: cite("746.1", "15 CFR 746.1(b)", "(b)") },
+    });
+
+  const jp: Fact[] = [];
+  if (home) jp.push({ status: "info", title: "Japan is the exporting country", text: "The destination lists of the Export Trade Control Order do not apply." });
+  else {
+    if (jpSanction) jp.push({ status: iso === "KP" ? "block" : "flag", title: jpSanction.title, text: jpSanction.text, cite: { label: "輸出令 第2条", onClick: cite(`${ORDER_SECTION}:2`, "輸出令 第2条") } });
+    jp.push({
+      status: c.jp.groupA ? "pass" : "flag",
+      title: c.jp.groupA ? "Catch-all: METI notification only (Group A)" : "Catch-all: use and end-user checks apply",
+      text: catchAll,
+      cite: { label: "輸出令 第4条", onClick: cite(`${ORDER_SECTION}:4`, "輸出令 第4条") },
+    });
+    if (c.jp.russiaDiversion)
+      jp.push({
+        status: "flag",
+        title: "Russia-diversion destination (別表第二の四)",
+        text: "Export approval (輸出承認) is required for 別表第二の三 goods in transactions with persons designated by METI notice — 輸出令 第2条第1項第1号の8.",
+        cite: { label: "別表第二の四", onClick: cite(`${ORDER_SECTION}:別表第二の四`, "輸出令 別表第二の四") },
+      });
+    jp.push(
+      c.jp.concern
+        ? { status: "flag", title: "Small-value exception not available", text: "This is a concern country (別表第四) — 輸出令 第4条第1項第5号.", cite: { label: "別表第四", onClick: cite(`${ORDER_SECTION}:別表第四`, "輸出令 別表第四") } }
+        : {
+            status: "info",
+            title: "Small-value exception available",
+            text: "For 5–13 and 15の項 goods up to ¥1,000,000 (¥50,000 for 別表第三の三 goods), provided no catch-all condition applies.",
+            cite: { label: "第4条第1項第5号", onClick: cite(`${ORDER_SECTION}:4`, "輸出令 第4条") },
+          },
+    );
+  }
+
+  const fefta: { on: boolean; title: string; ja: string; id: string; note?: string }[] = [
+    { on: c.jp.groupA, title: "Group A", ja: "別表第三", id: "別表第三", note: "Catch-all applies only when METI informs the exporter — 輸出令 第1条第3項, 第4条第2項第3号." },
+    { on: c.jp.unArmsEmbargo, title: "UN arms embargo", ja: "別表第三の二", id: "別表第三の二", note: "Conventional-weapons use / end-user checks extend to all 16の項 goods — 輸出令 第4条第1項第4号." },
+    { on: c.jp.concern, title: "Concern country", ja: "別表第四", id: "別表第四", note: "The small-value exception (少額特例) is not available — 輸出令 第4条第1項第5号." },
+    { on: c.jp.russiaDiversion, title: "Russia-diversion destination", ja: "別表第二の四", id: "別表第二の四" },
+  ];
 
   return (
-    <Page wide>
-      <Link to="/regulations/countries" className="inline-flex items-center gap-1 text-[12.5px] text-fg-3 hover:text-fg">
-        <ArrowLeft className="size-3.5" /> Countries
-      </Link>
-      <div className="mb-6 mt-2 flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-[22px] font-semibold tracking-tight">{c.en}</h1>
-            <span className="rounded bg-panel-2 px-1.5 py-0.5 font-mono text-[12px] text-fg-2 ring-1 ring-line">{c.iso2}</span>
-            {tiers.map((t) => (
-              <Badge key={t.key} tone={t.tone}>
-                {t.label} <span className="font-normal opacity-75">{t.ja}</span>
-              </Badge>
-            ))}
-            {c.groups.some((g) => g.startsWith("E")) && <Badge tone="red">Country Group {c.groups.filter((g) => g.startsWith("E")).join(", ")}</Badge>}
-          </div>
-          <div className="mt-1 flex flex-wrap gap-x-3 text-[13.5px] text-fg-2">
-            <span>{c.ja}</span>
-            {c.jaLawName && c.jaLawName !== c.ja && <span className="text-fg-3">法令上の表記: {c.jaLawName}</span>}
+    <Page>
+      <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-1 text-[13px] text-fg-3">
+        <Link to="/regulations/countries" className="hover:text-fg">
+          Countries
+        </Link>
+        <ChevronRight className="size-3.5" />
+      </nav>
+      <PageHeader
+        title={c.en}
+        description={
+          <>
+            {c.ja}
+            {c.jaLawName && c.jaLawName !== c.ja && <span className="text-fg-3"> · 法令上の表記 {c.jaLawName}</span>}
             <span className="text-fg-3">
-              EAR name: <span className="text-fg-2">{c.earName ?? row?.earName ?? "—"}</span>
+              {" "}
+              · {c.iso2} · EAR name {c.earName ?? row?.earName ?? "—"}
             </span>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+        actions={
+          <Button variant="primary" icon={<ScanSearch className="size-4" />} onClick={() => nav(`/screening?country=${iso}`)}>
+            Screen parties in {c.en}
+          </Button>
+        }
+      />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        {/* US EAR */}
-        <Card className="self-start">
-          <CardHeader title="US EAR" subtitle="Country Groups, Country Chart and Part 746 controls" actions={<StampNote stamp={groups.data?.stamp ?? meta.data?.stamps.groups} />} />
-          <div className="space-y-6 px-4 py-4">
-            {embargo && (
-              <div className="flex gap-3 rounded-lg border border-red/25 bg-red-soft px-3.5 py-3">
-                <ShieldAlert className="mt-0.5 size-4 shrink-0 text-red-text" />
-                <div className="min-w-0 text-[12.5px] leading-relaxed">
-                  <div className="font-medium text-red-text">{embargo.title}</div>
-                  <div className="mt-0.5 text-fg-2">{embargo.text}</div>
-                  <div className="mt-1.5">
-                    <CiteButton onClick={() => open({ kind: "section", id: embargo.sec, label: `15 CFR ${embargo.sec}` })}>Read §{embargo.sec}</CiteButton>
-                  </div>
-                </div>
-              </div>
-            )}
-
+      <div className="space-y-10">
+        <Section title="What applies" description="Destination-based controls only. List-controlled goods (Japan 1–15の項) need a license to every destination.">
+          <div className="space-y-4">
             <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <SectionLabel>Country Groups</SectionLabel>
-                <CiteButton onClick={() => open({ kind: "section", id: "740 Supp. 1", label: "15 CFR 740 Supp. No. 1" })}>Supp. No. 1 to Part 740</CiteButton>
-              </div>
-              {groups.isLoading ? (
-                <Skeleton className="h-40" />
-              ) : (
-                <div className="overflow-hidden rounded-lg border border-line">
-                <div className="-mb-px grid sm:grid-cols-2">
-                  {COUNTRY_GROUP_IDS.map((g) => {
-                    const on = c.groups.includes(g);
-                    const tone = g.startsWith("E") ? "text-red-text" : g.startsWith("D") ? "text-orange-text" : "text-fg";
-                    return (
-                      <div key={g} className={cx("flex items-center gap-2.5 border-b border-line px-3 py-1.5 text-[12.5px] sm:odd:border-r", on ? "bg-panel" : "bg-panel-2/40")}>
-                        <span className={cx("w-8 shrink-0 font-mono text-[11.5px] font-medium", on ? tone : "text-fg-3")}>{g}</span>
-                        <span className={cx("min-w-0 flex-1 truncate", on ? "text-fg" : "text-fg-3")} title={labelFor(g)}>
-                          {labelFor(g)}
-                        </span>
-                        {on ? <Check className={cx("size-3.5 shrink-0", tone)} strokeWidth={2.5} aria-label="Member" /> : <span className="w-3.5 shrink-0 text-center text-[11.5px] text-fg-3/60">—</span>}
-                      </div>
-                    );
-                  })}
-                </div>
-                </div>
-              )}
+              <div className="mb-1.5 px-1 text-[13px] font-semibold text-fg-2">United States</div>
+              <Card className="k-list overflow-hidden [--inset:45px]">
+                {us.map((f, i) => (
+                  <FactRow key={i} f={f} />
+                ))}
+              </Card>
             </div>
-
             <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <SectionLabel>Commerce Country Chart</SectionLabel>
-                <Link to="/regulations/chart" className="text-[12px] text-accent-text hover:underline">
-                  Full chart
-                </Link>
-              </div>
-              {chart.isLoading ? (
+              <div className="mb-1.5 px-1 text-[13px] font-semibold text-fg-2">Japan</div>
+              <Card className="k-list overflow-hidden [--inset:45px]">
+                {jp.map((f, i) => (
+                  <FactRow key={i} f={f} />
+                ))}
+              </Card>
+            </div>
+          </div>
+        </Section>
+
+        <Section
+          title="Country Chart row"
+          actions={
+            <Link to="/regulations/chart" className="text-[13px] text-accent-text hover:underline">
+              Full chart
+            </Link>
+          }
+        >
+          <Card className="overflow-hidden">
+            {chart.isLoading ? (
+              <div className="p-4">
                 <Skeleton className="h-20" />
-              ) : row ? (
-                <>
-                  <ChartRow x={row.x} />
-                  <div className="mt-1.5 text-[11.5px] text-fg-3">
-                    {row.x.length ? `X in ${row.x.length} of ${CHART_COLUMNS.length} columns.` : "No X marks."} An X means items controlled under that reason and column need a license to this destination.
-                  </div>
-                  {row.footnotes.length > 0 && (
-                    <ol className="mt-3 space-y-1.5">
-                      {row.footnotes.map((n) => (
-                        <li key={n} className="flex gap-2 text-[12.5px] leading-relaxed text-fg-2">
-                          <span className="w-4 shrink-0 text-right font-mono text-[11px] font-semibold text-fg-3">{n}</span>
-                          <span className="min-w-0">
-                            <SectionRefs text={chart.data?.footnotes[String(n)] ?? ""} />
-                          </span>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                </>
-              ) : (
-                <div className="rounded-lg border border-dashed border-line-strong px-3 py-3 text-[12.5px] text-fg-3">
-                  {iso === "HK"
-                    ? "Hong Kong has no row of its own: since December 2020 the EAR treat Hong Kong as China for licensing purposes."
-                    : `${c.en} has no row on the Commerce Country Chart.`}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <SectionLabel>UN arms embargo</SectionLabel>
-                <CiteButton onClick={() => open({ kind: "section", id: "746.1", highlight: "(b)", label: "15 CFR 746.1(b)" })}>§746.1(b)</CiteButton>
               </div>
-              <div className="flex items-start gap-2 text-[12.5px] leading-relaxed">
-                <span className={cx("mt-1.5 size-1.5 shrink-0 rounded-full", c.unArmsEmbargoUS ? "bg-orange" : "bg-line-strong")} />
-                <span className="text-fg-2">
-                  {c.unArmsEmbargoUS ? (
-                    <>
-                      <span className="font-medium text-fg">Listed in §746.1(b)(2).</span> A license is required for items with a “UN” reason for control; applications contrary to the
-                      Security Council resolution are denied.
-                    </>
-                  ) : (
-                    "Not listed in §746.1(b)(2) — UN reasons for control do not apply."
-                  )}
-                </span>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <div className="space-y-6 self-start">
-          {/* Japan FEFTA */}
-          <Card>
-            <CardHeader title="Japan FEFTA" subtitle="輸出貿易管理令 — country lists and what they change" actions={<StampNote stamp={jpStamp} />} />
-            {home ? (
-              <div className="px-4 py-4 text-[12.5px] text-fg-2">Japan is the exporting country; the destination tiers of the Export Trade Control Order do not apply.</div>
-            ) : (
+            ) : row ? (
               <>
-                {jpSanction && (
-                  <div className="border-b border-line px-4 py-3">
-                    <div className="flex gap-3 rounded-lg border border-amber/30 bg-amber-soft px-3.5 py-3">
-                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-text" />
-                      <div className="min-w-0 text-[12.5px] leading-relaxed">
-                        <div className="font-medium text-amber-text">{jpSanction.title}</div>
-                        <div className="mt-0.5 text-fg-2">{jpSanction.text}</div>
-                        <div className="mt-1.5">
-                          <CiteButton onClick={() => open({ kind: "section", id: `${ORDER_SECTION}:2`, label: "輸出令 第2条" })}>Read 輸出令 第2条</CiteButton>
-                        </div>
+                <div className="px-4 py-3">
+                  <ChartRow x={row.x} />
+                </div>
+                {row.footnotes.length > 0 && (
+                  <div className="k-list border-t border-line [--inset:44px]">
+                    {row.footnotes.map((n) => (
+                      <div key={n} className="flex gap-3 px-4 py-3 text-[13.5px] leading-relaxed">
+                        <span className="w-4 shrink-0 text-right text-[12.5px] font-semibold tabular text-fg-3">{n}</span>
+                        <span className="min-w-0 text-fg-2">
+                          <SectionRefs text={chart.data?.footnotes[String(n)] ?? ""} />
+                        </span>
                       </div>
-                    </div>
+                    ))}
                   </div>
                 )}
-                <div className="divide-y divide-line">
-                  <FeftaRow on={c.jp.groupA} title="Group A" ja="別表第三" cite={{ id: `${ORDER_SECTION}:別表第三`, label: "輸出令 別表第三" }}>
-                    {c.jp.groupA ? (
-                      <>
-                        Catch-all (16の項) applies only when METI informs the exporter — 輸出令 第1条第3項, 第4条第2項第3号.
-                      </>
-                    ) : (
-                      <>Catch-all (16の項) applies with objective use / end-user requirements — see below.</>
-                    )}
-                  </FeftaRow>
-                  <FeftaRow on={c.jp.unArmsEmbargo} title="UN arms embargo" ja="別表第三の二" cite={{ id: `${ORDER_SECTION}:別表第三の二`, label: "輸出令 別表第三の二" }}>
-                    {c.jp.unArmsEmbargo ? <>Conventional-weapons use / end-user checks extend to all 16の項 goods, not only 16の項（1） — 輸出令 第4条第1項第4号.</> : null}
-                  </FeftaRow>
-                  <FeftaRow on={c.jp.concern} title="Concern country" ja="別表第四" cite={{ id: `${ORDER_SECTION}:別表第四`, label: "輸出令 別表第四" }}>
-                    {c.jp.concern ? <>The small-value exception (少額特例) is not available — 輸出令 第4条第1項第5号.</> : null}
-                  </FeftaRow>
-                  <FeftaRow on={c.jp.russiaDiversion} title="Russia-diversion destination" ja="別表第二の四" cite={{ id: `${ORDER_SECTION}:別表第二の四`, label: "輸出令 別表第二の四" }}>
-                    {c.jp.russiaDiversion ? (
-                      <>Export approval (輸出承認) is required for 別表第二の三 goods in transactions with persons designated by METI notice — 輸出令 第2条第1項第1号の8.</>
-                    ) : null}
-                  </FeftaRow>
-                </div>
-                <div className="space-y-2.5 border-t border-line bg-panel-2/40 px-4 py-3 text-[12.5px] leading-relaxed">
-                  <div>
-                    <div className="font-medium text-fg">Catch-all (16の項) for this destination</div>
-                    <div className="text-fg-2">{catchAll}</div>
-                  </div>
-                  <div>
-                    <div className="font-medium text-fg">Small-value exception (少額特例)</div>
-                    <div className="text-fg-2">
-                      {c.jp.concern
-                        ? "Not available."
-                        : "Available for 5–13 and 15の項 goods up to ¥1,000,000 (¥50,000 for 別表第三の三 goods), provided no catch-all condition applies."}{" "}
-                      <CiteButton onClick={() => open({ kind: "section", id: `${ORDER_SECTION}:4`, label: "輸出令 第4条" })}>輸出令 第4条第1項第5号</CiteButton>
-                    </div>
-                  </div>
-                  <div className="text-[11.5px] text-fg-3">
-                    List control (1–15の項) requires a license to every destination regardless of tier.{" "}
-                    <Link to="/regulations/japan" className="text-accent-text hover:underline">
-                      Japan (FEFTA) reference
-                    </Link>
-                  </div>
-                </div>
               </>
+            ) : (
+              <div className="px-4 py-4 text-[13.5px] text-fg-2">
+                {iso === "HK" ? "Hong Kong has no row of its own: since December 2020 the EAR treat Hong Kong as China for licensing purposes." : `${c.en} has no row on the Commerce Country Chart.`}
+              </div>
             )}
           </Card>
+          {!c.unArmsEmbargoUS && <p className="mt-2 px-1 text-[12.5px] text-fg-3">Not on the UN arms embargo list in §746.1(b)(2), so UN reasons for control do not apply.</p>}
+        </Section>
 
-          {/* Screening */}
-          <Card>
-            <CardHeader title="Screening lists" icon={<ScanSearch className="size-4" />} />
-            <div className="px-4 py-3.5 text-[12.5px] leading-relaxed text-fg-2">
-              Check consignees and end users located in {c.en} against the US Consolidated Screening List (Entity List, MEU, SDN and others) and METI’s End User List (外国ユーザーリスト).
-              <div className="mt-3">
-                <Link to={`/screening?country=${iso}`}>
-                  <Button size="sm" icon={<Search className="size-3.5" />}>
-                    Screen with {c.iso2} pre-selected
-                  </Button>
-                </Link>
+        <Section title="EAR Country Groups" actions={<CiteButton onClick={cite("740 Supp. 1", "15 CFR 740 Supp. No. 1")}>Supp. No. 1 to Part 740</CiteButton>}>
+          <Card className="overflow-hidden">
+            {groups.isLoading ? (
+              <div className="p-4">
+                <Skeleton className="h-40" />
               </div>
-            </div>
+            ) : (
+              <div className="grid sm:grid-cols-2">
+                {COUNTRY_GROUP_IDS.map((g, i) => {
+                  const on = c.groups.includes(g);
+                  return (
+                    <div key={g} className={cx("flex items-center gap-3 px-4 py-2.5 text-[13.5px]", i > 1 && "border-t border-line", i === 1 && "max-sm:border-t max-sm:border-line", i % 2 === 1 && "sm:border-l sm:border-line")}>
+                      <span className={cx("w-9 shrink-0 text-[13px] font-medium tabular", on ? "text-fg" : "text-fg-3")}>{g}</span>
+                      <span className={cx("min-w-0 flex-1 truncate", on ? "text-fg" : "text-fg-3")} title={labelFor(g)}>
+                        {labelFor(g)}
+                      </span>
+                      {on && <Check className="size-4 shrink-0 text-accent" strokeWidth={2.5} aria-label="Member" />}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </Card>
-        </div>
+        </Section>
+
+        {!home && (
+          <Section
+            title="Japan’s destination lists"
+            description="輸出貿易管理令 — which lists this destination is on."
+            actions={
+              <Link to="/regulations/japan?tab=countries" className="text-[13px] text-accent-text hover:underline">
+                Japan reference
+              </Link>
+            }
+          >
+            <Card className="k-list overflow-hidden">
+              {fefta.map((f) => (
+                <div key={f.id} className="flex items-start gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[14px]">
+                      <span className={cx(f.on ? "font-medium text-fg" : "text-fg-2")}>{f.title}</span> <span className="text-fg-3">{f.ja}</span>
+                    </div>
+                    {f.on && f.note && <div className="mt-0.5 text-[13px] leading-relaxed text-fg-2">{f.note}</div>}
+                  </div>
+                  <span className={cx("w-20 shrink-0 text-right text-[13px]", f.on ? "font-medium text-fg" : "text-fg-3")}>{f.on ? "Listed" : "Not listed"}</span>
+                  <span className="w-28 shrink-0 text-right">
+                    <CiteButton onClick={cite(`${ORDER_SECTION}:${f.id}`, `輸出令 ${f.id}`)}>輸出令 {f.id}</CiteButton>
+                  </span>
+                </div>
+              ))}
+            </Card>
+          </Section>
+        )}
+
+        <p className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-[12.5px] text-fg-3">
+          <StampNote label="EAR Country Groups" stamp={groups.data?.stamp ?? meta.data?.stamps.groups} />
+          <StampNote label="Country Chart" stamp={chart.data?.stamp} />
+          <StampNote label="輸出令" stamp={jpStamp} />
+        </p>
       </div>
     </Page>
   );

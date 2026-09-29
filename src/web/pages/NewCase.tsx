@@ -1,11 +1,10 @@
-import { FilePlus2, FileText, Sparkles, Upload } from "lucide-react";
+import { FileUp, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Page, useMeta } from "../components/AppShell.tsx";
-import { CountryName, CountryPicker } from "../components/CountryPicker.tsx";
-import { Badge, Button, Card, CardHeader, Field, Input, SectionLabel, Textarea, toast } from "../components/ui/index.tsx";
+import { CountryName, CountryPicker, useCountries } from "../components/CountryPicker.tsx";
+import { Badge, Button, Card, CardHeader, Field, Input, PageHeader, Section, Segmented, Textarea, toast } from "../components/ui/index.tsx";
 import { api, ApiError, type Case, type Item } from "../lib/api.ts";
-import { cx } from "../lib/format.ts";
 
 interface Extraction {
   title: string;
@@ -31,6 +30,13 @@ export function NewCasePage() {
   const [title, setTitle] = useState("");
   const [shipFrom, setShipFrom] = useState("JP");
   const [destination, setDestination] = useState("");
+  const [itemName, setItemName] = useState("");
+  const [hsCode, setHsCode] = useState("");
+  const [endUser, setEndUser] = useState("");
+  const [endUserCountry, setEndUserCountry] = useState("");
+  const countries = useCountries();
+  const countryName = (iso: string) => countries.data?.find((c) => c.iso2 === iso)?.en ?? iso;
+  const suggestedTitle = itemName.trim() ? `${itemName.trim()}${destination || endUser.trim() ? ` to ${endUser.trim() || countryName(destination)}` : ""}` : destination ? `Shipment to ${countryName(destination)}` : "";
   const [creating, setCreating] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
@@ -42,6 +48,7 @@ export function NewCasePage() {
     setCreating(true);
     try {
       const r = await api.post<{ case: Case }>("/cases", body);
+      if (r.case.parties.some((p) => p.name.trim())) await api.post(`/cases/${r.case.id}/screen`).catch(() => undefined);
       nav(`/cases/${r.case.id}`);
     } catch (e) {
       toast("Could not create the case", { detail: (e as Error).message, tone: "error" });
@@ -107,51 +114,102 @@ export function NewCasePage() {
     });
   };
 
+  const quick = () =>
+    create({
+      title: title.trim() || suggestedTitle || "Untitled case",
+      shipFrom,
+      destination,
+      items: itemName.trim()
+        ? [
+            {
+              id: rid(),
+              name: itemName.trim(),
+              hsCode: hsCode.trim() || undefined,
+              kind: "commodity",
+              quantity: 1,
+              currency: "USD",
+              countryOfOrigin: "",
+              us: { origin: "unknown", usContentEccns: [], fdp: {}, eccn: "", paragraph: "", classification: "unclassified", controlOverrides: {} },
+              jp: { listStatus: "unclassified", kou: "", catchAllScope: "unknown", appendix2_3: "unknown" },
+              cn: { listStatus: "unclassified", cnCode: "", materials: [] },
+            } as Item,
+          ]
+        : [],
+      parties: endUser.trim() ? [{ id: rid(), role: "end_user", name: endUser.trim(), country: endUserCountry || destination, address: "" }] : [],
+    });
+
   return (
     <Page>
-      <div className="mb-6">
-        <h1 className="text-[22px] font-semibold tracking-tight">New case</h1>
-        <p className="mt-1 text-[13.5px] text-fg-2">Start from scratch, or let Kanmon read a contract or purchase order and draft the case for you to verify.</p>
-      </div>
-      <div className="mb-5 grid gap-3 sm:grid-cols-2">
-        <ModeCard active={mode === "blank"} onClick={() => setMode("blank")} icon={<FilePlus2 className="size-4" />} title="Start from scratch" text="Enter the transaction, items and parties yourself." />
-        <ModeCard active={mode === "doc"} onClick={() => setMode("doc")} icon={<Sparkles className="size-4" />} title="Draft from a document" text="Upload a contract, PO or proforma (PDF, DOCX, TXT). Every extracted value carries a quote from the source." badge={ai ? undefined : "Needs an API key"} />
-      </div>
+      <PageHeader title="Check a shipment" description="Three answers are enough to start. Kanmon works out which laws apply and asks for anything else it needs." />
+      <Segmented
+        className="mb-6"
+        value={mode}
+        onChange={setMode}
+        options={[
+          { value: "blank", label: "Answer three questions" },
+          { value: "doc", label: "Start from a document" },
+        ]}
+      />
 
       {mode === "blank" && (
-        <Card>
-          <form
-            className="grid gap-4 p-5 sm:grid-cols-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void create({ title: title || "Untitled case", shipFrom, destination });
-            }}
-          >
-            <Field label="Title" className="sm:col-span-3">
-              <Input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Spectrum analyzers to Hanoi University of Science" />
+        <form
+          className="space-y-8"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void quick();
+          }}
+        >
+          <Section title="What are you shipping?" lead={<Num n={1} />}>
+            <Card className="grid gap-4 p-5 sm:grid-cols-[1fr_200px]">
+              <Field label="Product" hint="Add more items, specifications and classifications on the next screen.">
+                <Input autoFocus value={itemName} onChange={(e) => setItemName(e.target.value)} placeholder="e.g. Spectrum analyzer, 26.5 GHz" />
+              </Field>
+              <Field label="HS code (optional)" hint="Drives Japan’s catch-all scope.">
+                <Input value={hsCode} onChange={(e) => setHsCode(e.target.value)} placeholder="9030.84" className="font-mono" />
+              </Field>
+            </Card>
+          </Section>
+          <Section title="Where is it going?" lead={<Num n={2} />}>
+            <Card className="grid gap-4 p-5 sm:grid-cols-2">
+              <Field label="Ships from" hint="Decides which export law governs the shipment.">
+                <CountryPicker value={shipFrom} onChange={setShipFrom} />
+              </Field>
+              <Field label="Final destination" hint="Where the goods will be used, not where they transit.">
+                <CountryPicker value={destination} onChange={setDestination} placeholder="Choose a country" />
+              </Field>
+            </Card>
+          </Section>
+          <Section title="Who will use it?" lead={<Num n={3} />} description="Optional now, but every party must be screened before you ship.">
+            <Card className="grid gap-4 p-5 sm:grid-cols-[1fr_240px]">
+              <Field label="End user">
+                <Input value={endUser} onChange={(e) => setEndUser(e.target.value)} placeholder="Legal name, as in the contract" />
+              </Field>
+              <Field label="Country">
+                <CountryPicker value={endUserCountry || destination} onChange={setEndUserCountry} placeholder="Same as destination" />
+              </Field>
+            </Card>
+          </Section>
+          <div className="flex flex-wrap items-end gap-4 border-t border-line pt-6">
+            <Field label="Case name" className="min-w-64 flex-1">
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={suggestedTitle || "Named automatically from the product and destination"} />
             </Field>
-            <Field label="Ships from">
-              <CountryPicker value={shipFrom} onChange={setShipFrom} />
-            </Field>
-            <Field label="Ultimate destination">
-              <CountryPicker value={destination} onChange={setDestination} />
-            </Field>
-            <div className="flex items-end justify-end">
-              <Button variant="primary" type="submit" loading={creating}>
-                Create case
-              </Button>
-            </div>
-          </form>
-        </Card>
+            <Button variant="primary" size="lg" type="submit" loading={creating} disabled={!destination && !itemName.trim()}>
+              Check this shipment
+            </Button>
+          </div>
+        </form>
       )}
 
       {mode === "doc" && !ai && (
-        <Card className="p-5 text-[13.5px] text-fg-2">
-          Document intake uses Claude. Add an Anthropic API key in{" "}
-          <Link to="/settings" className="font-medium text-accent-text hover:underline">
-            Settings
-          </Link>{" "}
-          — the key and your documents go only to the Anthropic API from this machine.
+        <Card className="flex flex-col items-center px-6 py-12 text-center">
+          <FileUp className="size-8 stroke-[1.5] text-fg-3" />
+          <div className="mt-3 text-[17px] font-semibold tracking-tight">Drop in a purchase order, and Kanmon drafts the case</div>
+          <p className="mt-1 max-w-md text-[14px] leading-relaxed text-fg-2">
+            Claude reads the contract and fills in the goods, parties and route, quoting the source for every value. You check the draft before anything is saved. This needs an Anthropic API key; documents go only to the Anthropic API from this machine.
+          </p>
+          <Link to="/settings#ai" className="mt-5">
+            <Button variant="primary">Add an API key</Button>
+          </Link>
         </Card>
       )}
 
@@ -166,11 +224,11 @@ export function NewCasePage() {
                 if (f) setFile(f);
               }}
               onClick={() => inputRef.current?.click()}
-              className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-line-strong bg-panel-2/40 px-6 py-10 text-center transition-colors hover:bg-panel-2"
+              className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-line-strong px-6 py-12 text-center transition-colors hover:border-accent hover:bg-accent-soft/40"
             >
-              <Upload className="size-5 text-fg-3" />
-              <div className="mt-2 text-[13.5px] font-medium">{file ? file.name : "Drop a file or click to choose"}</div>
-              <div className="mt-0.5 text-[12px] text-fg-3">PDF (incl. scanned), DOCX or TXT · up to 32 MB</div>
+              <Upload className="size-7 stroke-[1.5] text-fg-3" />
+              <div className="mt-3 text-[15px] font-semibold">{file ? file.name : "Drop a contract or purchase order"}</div>
+              <div className="mt-1 text-[13px] text-fg-3">PDF (including scans), DOCX or TXT, up to 32 MB · or click to choose</div>
               <input ref={inputRef} type="file" accept=".pdf,.docx,.txt,.md,.csv" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
             </div>
             <div className="flex items-center gap-3 text-[12px] text-fg-3">
@@ -183,8 +241,8 @@ export function NewCasePage() {
                   Remove file
                 </Button>
               )}
-              <Button variant="primary" icon={<Sparkles className="size-3.5" />} loading={extracting} disabled={!file && !text.trim()} onClick={extract}>
-                {extracting ? "Reading document…" : "Extract transaction"}
+              <Button variant="primary" loading={extracting} disabled={!file && !text.trim()} onClick={extract}>
+                {extracting ? "Reading the document…" : "Draft the case"}
               </Button>
             </div>
           </div>
@@ -194,7 +252,7 @@ export function NewCasePage() {
       {ex && (
         <div className="space-y-4">
           <Card>
-            <CardHeader title={ex.title || "Extracted transaction"} subtitle="Review before creating the case. Nothing is saved until you click Create." icon={<FileText className="size-4" />} />
+            <CardHeader title={ex.title || "Draft from the document"} subtitle="Check the draft. Nothing is saved until you create the case." />
             <div className="grid gap-4 p-5 sm:grid-cols-4">
               <KV k="Ships from" v={<CountryName iso2={ex.shipFrom} />} />
               <KV k="Destination" v={<CountryName iso2={ex.destination} />} />
@@ -206,7 +264,7 @@ export function NewCasePage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader title={`Items (${ex.items.length})`} />
-              <div className="divide-y divide-line">
+              <div className="k-list">
                 {ex.items.map((i, n) => (
                   <div key={n} className="px-4 py-3 text-[13px]">
                     <div className="font-medium">{i.name}</div>
@@ -219,7 +277,7 @@ export function NewCasePage() {
             </Card>
             <Card>
               <CardHeader title={`Parties (${ex.parties.length})`} />
-              <div className="divide-y divide-line">
+              <div className="k-list">
                 {ex.parties.map((p, n) => (
                   <div key={n} className="px-4 py-3 text-[13px]">
                     <div className="flex items-center gap-2">
@@ -237,7 +295,7 @@ export function NewCasePage() {
             <Card className="p-5">
               {ex.concerns.length > 0 && (
                 <>
-                  <SectionLabel className="mb-2">Points to question</SectionLabel>
+                  <div className="mb-2 text-[15px] font-semibold">Points to question</div>
                   <ul className="mb-4 space-y-2">
                     {ex.concerns.map((cc, n) => (
                       <li key={n} className="text-[13px]">
@@ -250,7 +308,7 @@ export function NewCasePage() {
               )}
               {ex.missing.length > 0 && (
                 <>
-                  <SectionLabel className="mb-2">Not stated in the document</SectionLabel>
+                  <div className="mb-2 text-[15px] font-semibold">Not stated in the document</div>
                   <ul className="list-disc space-y-0.5 pl-5 text-[13px] text-fg-2">
                     {ex.missing.map((m, n) => (
                       <li key={n}>{m}</li>
@@ -261,9 +319,7 @@ export function NewCasePage() {
             </Card>
           )}
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setEx(null)}>
-              Start over
-            </Button>
+            <Button onClick={() => setEx(null)}>Start over</Button>
             <Button variant="primary" loading={creating} onClick={() => fromExtraction(ex)}>
               Create case from extraction
             </Button>
@@ -274,17 +330,8 @@ export function NewCasePage() {
   );
 }
 
-function ModeCard({ active, onClick, icon, title, text, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; title: string; text: string; badge?: string }) {
-  return (
-    <button onClick={onClick} className={cx("rounded-xl border bg-panel p-4 text-left shadow-card transition-all", active ? "border-accent ring-3 ring-accent/15" : "border-line hover:border-line-strong")}>
-      <div className="flex items-center gap-2">
-        <span className={cx("flex size-7 items-center justify-center rounded-lg", active ? "bg-accent-soft text-accent-text" : "bg-panel-2 text-fg-3")}>{icon}</span>
-        <span className="text-[14px] font-medium">{title}</span>
-        {badge && <Badge tone="gray" className="ml-auto">{badge}</Badge>}
-      </div>
-      <div className="mt-2 text-[12.5px] text-fg-3">{text}</div>
-    </button>
-  );
+function Num({ n }: { n: number }) {
+  return <span className="flex size-6 items-center justify-center rounded-full bg-fg text-[12.5px] font-semibold tabular text-bg">{n}</span>;
 }
 
 function KV({ k, v, className }: { k: string; v: React.ReactNode; className?: string }) {
@@ -297,5 +344,5 @@ function KV({ k, v, className }: { k: string; v: React.ReactNode; className?: st
 }
 
 function Quote({ children }: { children: React.ReactNode }) {
-  return <div className="mt-1 border-l-2 border-line-strong pl-2 text-[12px] italic text-fg-3">“{children}”</div>;
+  return <div className="mt-1.5 border-l-2 border-line-strong pl-2.5 text-[12.5px] text-fg-3">“{children}”</div>;
 }

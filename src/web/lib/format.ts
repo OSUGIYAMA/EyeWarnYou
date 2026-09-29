@@ -4,7 +4,7 @@ export const OUTCOME: Record<Outcome, { label: string; short: string; tone: Tone
   prohibited: { label: "Prohibited", short: "Prohibited", tone: "red" },
   license_required: { label: "License required", short: "License", tone: "orange" },
   exception_available: { label: "Exception may apply", short: "Exception", tone: "amber" },
-  incomplete: { label: "Incomplete", short: "Incomplete", tone: "gray" },
+  incomplete: { label: "Needs input", short: "Needs input", tone: "gray" },
   no_license_required: { label: "No license required", short: "NLR", tone: "green" },
   not_applicable: { label: "Not applicable", short: "N/A", tone: "neutral" },
 };
@@ -20,14 +20,14 @@ export const STATUS_LABEL: Record<string, string> = {
 export type Tone = "red" | "orange" | "amber" | "green" | "blue" | "violet" | "gray" | "neutral";
 
 export const TONE_CLASSES: Record<Tone, string> = {
-  red: "bg-red-soft text-red-text ring-red/20",
-  orange: "bg-orange-soft text-orange-text ring-orange/20",
-  amber: "bg-amber-soft text-amber-text ring-amber/25",
-  green: "bg-green-soft text-green-text ring-green/20",
-  blue: "bg-accent-soft text-accent-text ring-accent/20",
-  violet: "bg-violet-soft text-violet ring-violet/20",
-  gray: "bg-panel-2 text-fg-2 ring-line-strong",
-  neutral: "bg-panel-2 text-fg-3 ring-line",
+  red: "bg-red-soft text-red-text",
+  orange: "bg-orange-soft text-orange-text",
+  amber: "bg-amber-soft text-amber-text",
+  green: "bg-green-soft text-green-text",
+  blue: "bg-accent-soft text-accent-text",
+  violet: "bg-violet-soft text-violet",
+  gray: "bg-fill text-fg-2",
+  neutral: "bg-fill-2 text-fg-3",
 };
 
 export const TONE_DOT: Record<Tone, string> = {
@@ -38,7 +38,7 @@ export const TONE_DOT: Record<Tone, string> = {
   blue: "bg-accent",
   violet: "bg-violet",
   gray: "bg-fg-3",
-  neutral: "bg-line-strong",
+  neutral: "bg-panel-3",
 };
 
 export const STATUS_TONE: Record<Status, Tone> = {
@@ -58,13 +58,17 @@ export function relTime(iso: string): string {
   if (h < 24) return `${h}h ago`;
   const days = Math.round(h / 24);
   if (days < 30) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return fmtDate(iso);
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "24 Sep 2026" — day-first with three-letter months, independent of the browser's ICU data. */
 export function fmtDate(iso: string | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 export function daysBetween(a: string, b: string): number {
