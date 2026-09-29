@@ -251,7 +251,7 @@ export function LibraryPage() {
         title="Library"
         description={
           <>
-            The full text of the EAR and Japan’s export-control law. Every citation in Kanmon opens here.
+            The full text of the EAR and Japan’s export-control law. Every citation in EyeWarnYou opens here.
             <span className="mt-1 block text-[12.5px] text-fg-3">
               eCFR as amended to {earStamp ? fmtDate(earStamp.asOf) : "…"} · 輸出令 as revised to {jpStamp ? fmtDate(jpStamp.asOf) : "…"}
               {meta.data && <span className="tabular"> · {meta.data.counts.sections} sections</span>}

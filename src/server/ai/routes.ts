@@ -1,5 +1,5 @@
 // AI-assisted steps. Each one is retrieval-grounded (the model only sees regulation text that
-// Kanmon retrieved from its own snapshots) and returns a *draft* for a human reviewer.
+// EyeWarnYou retrieved from its own snapshots) and returns a *draft* for a human reviewer.
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";

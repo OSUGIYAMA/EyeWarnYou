@@ -1,4 +1,4 @@
-# Kanmon interface design
+# EyeWarnYou interface design
 
 Design is how it works. Every screen answers one question, shows the answer first, and makes the next action obvious. The look follows Apple's platform conventions so that it feels familiar, calm and trustworthy — a tool for people who read regulations all day, not a dashboard.
 

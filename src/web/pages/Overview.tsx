@@ -170,7 +170,7 @@ function HowItWorks({ hasCases }: { hasCases: boolean }) {
   const [loading, setLoading] = useState(false);
   const steps = [
     { n: 1, title: "Describe the transaction", text: "What is shipped, from where to where, and who is involved — or drop in the purchase order." },
-    { n: 2, title: "Kanmon applies the law", text: "It works out which regimes reach the deal, screens every party and checks each item against the control lists." },
+    { n: 2, title: "EyeWarnYou applies the law", text: "It works out which regimes reach the deal, screens every party and checks each item against the control lists." },
     { n: 3, title: "Answer, then sign off", text: "Answer the few questions only you can, review any list matches, and record a decision with its reasons." },
   ];
   return (

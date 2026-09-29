@@ -90,7 +90,7 @@ const CASE_PHRASE: Record<string, (target: ReactNode) => ReactNode> = {
   "review.comment": (t) => <>Commented on {t}</>,
 };
 
-/** What happened, in words: "Created case KM-2026-0005", "Updated settings". */
+/** What happened, in words: "Created case EWY-2026-0005", "Updated settings". */
 function describe(e: AuditEvent, refs: Map<string, string>): { title: ReactNode; lead?: string; skip: string[] } {
   const d = (e.detail && typeof e.detail === "object" && !Array.isArray(e.detail) ? e.detail : {}) as Record<string, unknown>;
   const label = ACTION[e.action]?.label;

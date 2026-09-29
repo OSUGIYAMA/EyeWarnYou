@@ -1,13 +1,13 @@
 {
-  "name": "kanmon",
+  "name": "eyewarnyou",
   "version": "2.0.0",
   "private": true,
-  "description": "Kanmon — an economic-security workbench: export controls under Japanese, US and Chinese law, restricted-party screening across US, Japanese and Chinese lists, and regulatory intelligence.",
+  "description": "EyeWarnYou — an economic-security workbench: export controls under Japanese, US and Chinese law, restricted-party screening across US, Japanese and Chinese lists, and regulatory intelligence.",
   "license": "Apache-2.0",
   "author": "Tatsuya Sugiyama",
   "repository": {
     "type": "git",
-    "url": "https://github.com/OSUGIYAMA/export-control-ai-assistant.git"
+    "url": "https://github.com/OSUGIYAMA/EyeWarnYou.git"
   },
   "type": "module",
   "engines": {

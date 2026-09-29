@@ -89,7 +89,7 @@ export function AskPage() {
             <MessagesSquare className="size-8 stroke-[1.5] text-fg-3" />
             <div className="mt-3 text-[17px] font-semibold tracking-tight">Ask in plain words, get an answer with its sources</div>
             <p className="mt-1 max-w-md text-[14px] leading-relaxed text-fg-2">
-              Kanmon finds the passages in the EAR, the Commerce Control List and Japanese law, and Claude answers only from them, citing each one. This needs an Anthropic API key. The{" "}
+              EyeWarnYou finds the passages in the EAR, the Commerce Control List and Japanese law, and Claude answers only from them, citing each one. This needs an Anthropic API key. The{" "}
               <Link to="/regulations/library" className="text-accent-text hover:underline">
                 regulation library
               </Link>{" "}

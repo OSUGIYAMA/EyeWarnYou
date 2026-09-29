@@ -1,4 +1,4 @@
-// Kanmon server: API on /api, and (in production) the built web app.
+// EyeWarnYou server: API on /api, and (in production) the built web app.
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
@@ -17,7 +17,7 @@ const started = Date.now();
 store.load();
 console.log(`Loaded regulatory data in ${Date.now() - started} ms — ${store.data.ccl.eccns.length} ECCNs, ${store.data.screening.entries.length.toLocaleString()} screening entries, ${store.sections.size} regulation sections`);
 if (!store.data.screening.entries.some((e) => e.list === "EL")) {
-  if (process.env.KANMON_OFFLINE) console.warn("⚠ US screening lists are not downloaded (offline mode) — run `npm run sync` when online.");
+  if (process.env.EYEWARNYOU_OFFLINE) console.warn("⚠ US screening lists are not downloaded (offline mode) — run `npm run sync` when online.");
   else {
     console.log("Downloading the US Consolidated Screening List in the background (first run)…");
     runSync(["screening"])
@@ -35,7 +35,7 @@ landscape(store.data, store.loadedAt);
 const root = new Hono();
 
 // Optional shared password for deployments beyond localhost.
-if (process.env.KANMON_PASSWORD) root.use("*", basicAuth({ username: process.env.KANMON_USER ?? "kanmon", password: process.env.KANMON_PASSWORD }));
+if (process.env.EYEWARNYOU_PASSWORD) root.use("*", basicAuth({ username: process.env.EYEWARNYOU_USER ?? "eyewarnyou", password: process.env.EYEWARNYOU_PASSWORD }));
 
 root.route("/", api);
 
@@ -45,5 +45,5 @@ if (fs.existsSync(WEB_DIR)) {
 }
 
 serve({ fetch: root.fetch, port: PORT, hostname: process.env.HOST ?? "127.0.0.1" }, (info) => {
-  console.log(`Kanmon is running at http://${info.address === "::1" ? "localhost" : info.address}:${info.port}`);
+  console.log(`EyeWarnYou is running at http://${info.address === "::1" ? "localhost" : info.address}:${info.port}`);
 });

@@ -8,7 +8,7 @@ import { assessUs } from "./us/index.ts";
 import { assessCn } from "./cn/index.ts";
 import { allQuestions } from "./questions.ts";
 
-export const ENGINE_VERSION = "kanmon-engine/1.0";
+export const ENGINE_VERSION = "eyewarnyou-engine/1.0";
 
 export interface EngineOptions {
   /** Evaluation date (YYYY-MM-DD). Defaults to the case ship date, else today. */

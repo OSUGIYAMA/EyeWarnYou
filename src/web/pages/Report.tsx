@@ -346,7 +346,7 @@ export function ReportPage() {
             <p className="mt-1">
               Determination computed {new Date(a.computedAt).toLocaleString("en-GB")} by {a.engineVersion} against: eCFR 15 CFR (as of {a.dataVersions.ccl}); 輸出貿易管理令 (revision {a.dataVersions.jpLaw}); 貨物等省令 ({a.dataVersions.jpList})
               {a.dataVersions.csl ? `; Consolidated Screening List (${a.dataVersions.csl})` : ""}
-              {a.dataVersions.meti ? `; METI End User List (${a.dataVersions.meti})` : ""}. Kanmon is a decision-support tool; the exporter remains responsible for compliance. Retain this record (15 CFR Part 762: five years; METI guidance: seven years).
+              {a.dataVersions.meti ? `; METI End User List (${a.dataVersions.meti})` : ""}. EyeWarnYou is a decision-support tool; the exporter remains responsible for compliance. Retain this record (15 CFR Part 762: five years; METI guidance: seven years).
             </p>
           </footer>
         </div>

@@ -1,6 +1,6 @@
 # Methodology
 
-This document explains how Kanmon reaches a determination: how it decides which regimes attach to a transaction, how each regime is evaluated, how restricted-party screening works, where AI is (and is not) used, and what the system does not do. Section references are to 15 CFR (EAR), to 輸出貿易管理令 (輸出令) and its ordinances, and to MOFCOM announcements. The state of the law described here is as of **2026-09-29**; the engine reads the current text from its snapshots, and this document names the few rules that are encoded as data rather than derived.
+This document explains how EyeWarnYou reaches a determination: how it decides which regimes attach to a transaction, how each regime is evaluated, how restricted-party screening works, where AI is (and is not) used, and what the system does not do. Section references are to 15 CFR (EAR), to 輸出貿易管理令 (輸出令) and its ordinances, and to MOFCOM announcements. The state of the law described here is as of **2026-09-29**; the engine reads the current text from its snapshots, and this document names the few rules that are encoded as data rather than derived.
 
 - [1. The jurisdictional model](#1-the-jurisdictional-model)
 - [2. United States — EAR](#2-united-states--ear)
@@ -16,11 +16,11 @@ This document explains how Kanmon reaches a determination: how it decides which 
 
 ## 1. The jurisdictional model
 
-A regime can reach a transaction through three different connecting factors, and Kanmon reports each separately:
+A regime can reach a transaction through three different connecting factors, and EyeWarnYou reports each separately:
 
 | Nexus | Japan | United States | China |
 |---|---|---|---|
-| **Ship-from** — the export itself | Goods exported from Japan (外為法第48条) | Exports from the US (out of scope: Kanmon models reexports) | Goods exported from China, e.g. by a Chinese subsidiary (出口管制法) |
+| **Ship-from** — the export itself | Goods exported from Japan (外為法第48条) | Exports from the US (out of scope: EyeWarnYou models reexports) | Goods exported from China, e.g. by a Chinese subsidiary (出口管制法) |
 | **Item-following** — the goods carry the regime with them | — | US-origin items; foreign-made items above the de minimis level; foreign direct products (§§734.3, 734.4, 734.9) | China-origin controlled items: end-user commitments (两用物项出口管制条例 第24条), extraterritorial end-use prohibitions (2024 No. 46, 2026 No. 1), the suspended 0.1% rule (2025 No. 61) |
 | **Person-following** — the counterparty | METI End User List (需要者要件) | Entity List, MEU, UVL, Denied Persons, §744.8 SDNs; OFAC | Control List, Watch List, Unreliable Entity List, countermeasures |
 
@@ -33,7 +33,7 @@ The analysis follows the order of Part 732 ("Steps for using the EAR").
 ### 2.1 Is the item subject to the EAR?
 
 - **US-origin items** are subject wherever located (§734.3(a)(2)).
-- **Foreign-made items with US content** are subject if the value of *controlled* US content exceeds the de minimis level (§734.4). The reviewer enters the controlled US content value and the item value; Kanmon computes the percentage against:
+- **Foreign-made items with US content** are subject if the value of *controlled* US content exceeds the de minimis level (§734.4). The reviewer enters the controlled US content value and the item value; EyeWarnYou computes the percentage against:
   - **10%** for destinations in Country Group E:1 or E:2 (§734.4(c)); **25%** elsewhere (§734.4(d));
   - **0%** where §734.4(a) removes de minimis: US-origin 9x515 or "600 series" .a–.x content to D:5, and .y content to E:1/E:2, Belarus, China or Russia (§734.4(a)(6)); US 5E002 encryption technology (§734.4(a)(2)); 0A919.a.1 content to D:5; 9E003 hot-section technology.
   - The guidance that only content that would itself need a license to the destination is counted (Supp. No. 2 to Part 734), and the partner-country rule that AT-only and EAR99 US content is not counted for Russia/Belarus when exporting from a Supp. No. 3 country such as Japan (§746.8(a)(12)(iii)(B)), are shown with the calculation.
@@ -63,7 +63,7 @@ Applied on top of the CCL result:
 
 Screening hits are applied only after a reviewer confirms them:
 
-| Confirmed list | Effect in Kanmon | Basis |
+| Confirmed list | Effect in EyeWarnYou | Basis |
 |---|---|---|
 | Denied Persons List | Prohibited | GP4, §736.2(b)(4) |
 | Entity List | License requirement as stated in the entry (usually "all items subject to the EAR"); license exceptions only if the entry says so; FDP footnotes recorded | §§744.11, 744.16 |
@@ -99,7 +99,7 @@ Japan attaches when goods are exported from Japan. The analysis follows the stru
 
 A listed item (該当) needs a METI license for every destination (外為法第48条第1項, 輸出令第1条). The reviewer records the 項番 (e.g. `7の項（1）`); the 別表第一 rows and 貨物等省令 articles are parsed from e-Gov so the picker and the classification assistant use the current text. Items in 1の項 have no exceptions (輸出令第4条第1項 ただし書).
 
-**Small-value exception** (少額特例, 輸出令第4条第1項第5号): available for 5–13の項 and 15の項 goods with a total value up to ¥1,000,000 — or ¥50,000 for goods in 別表第三の三 (all of 15の項, plus sub-items designated by METI notice; Kanmon flags the notice-dependent cases) — except to countries of concern (別表第四: Iran, Iraq, North Korea). It is lost for Group A destinations if METI has issued a notification, and elsewhere if any WMD catch-all condition or a conventional-weapons notification applies (and, for UN arms-embargo destinations, any conventional-weapons condition). Values are converted to yen at the configured rate.
+**Small-value exception** (少額特例, 輸出令第4条第1項第5号): available for 5–13の項 and 15の項 goods with a total value up to ¥1,000,000 — or ¥50,000 for goods in 別表第三の三 (all of 15の項, plus sub-items designated by METI notice; EyeWarnYou flags the notice-dependent cases) — except to countries of concern (別表第四: Iran, Iraq, North Korea). It is lost for Group A destinations if METI has issued a notification, and elsewhere if any WMD catch-all condition or a conventional-weapons notification applies (and, for UN arms-embargo destinations, any conventional-weapons condition). Values are converted to yen at the configured rate.
 
 ### 3.2 Catch-all (16の項, as revised on 2025-10-09)
 
@@ -112,7 +112,7 @@ Scope is determined from the HS code, using definitions parsed from the law: **1
 | **Other countries** | WMD: use, end user, notification · Conventional: use, end user, notification | WMD: use, end user, notification · Conventional: notification only |
 
 - **WMD requirements** (核兵器等おそれ省令): documented or communicated use for WMD development or the nuclear activities in the ordinance's table (第1号); an end user that develops or developed WMD per designated documents or communications (第2号・第3号). A confirmed METI End User List hit with a WMD concern code (B/C/M/N) satisfies the end-user requirement.
-- **Conventional-weapons requirements** (通常兵器おそれ省令, 2025 revision): documented use for conventional-weapons development (第1号) and, since 2025, an end user that develops, manufactures or uses conventional weapons (第2号・第3号). A confirmed End User List hit coded **CW** satisfies the latter. METI's own checklists ask whether the end user is a military or military-related body; Kanmon phrases the question accordingly, and notes that this reading is inferred from METI's templates and bulk-license design rather than stated in the ordinance.
+- **Conventional-weapons requirements** (通常兵器おそれ省令, 2025 revision): documented use for conventional-weapons development (第1号) and, since 2025, an end user that develops, manufactures or uses conventional weapons (第2号・第3号). A confirmed End User List hit coded **CW** satisfies the latter. METI's own checklists ask whether the end user is a military or military-related body; EyeWarnYou phrases the question accordingly, and notes that this reading is inferred from METI's templates and bulk-license design rather than stated in the ordinance.
 - **明らかガイドライン**: an end-user requirement is lifted if the reviewer records that it is *clear* the goods will not be used for the concerning purpose — except that, per guideline ⑲, this is not available for 16の項（1）goods to UN arms-embargo destinations, which the engine enforces.
 
 ### 3.3 Export approvals (外為法第48条第3項, 輸出令第2条)
@@ -159,9 +159,9 @@ The default threshold for case screening is 85. Hits are stored on the case with
 
 ## 7. AI assistance
 
-Claude (Opus 5 by default, configurable) is used for three drafting tasks, always grounded in text Kanmon retrieves from its own snapshots:
+Claude (Opus 5 by default, configurable) is used for three drafting tasks, always grounded in text EyeWarnYou retrieves from its own snapshots:
 
-- **Classification**: a low-effort planning call proposes search terms and likely entries; Kanmon retrieves up to 12 candidate ECCNs (full text including notes) and the matching 貨物等省令 lines; a second call with adaptive thinking follows the Order of Review and returns, as structured output, the ECCN and paragraph, a per-parameter comparison (threshold, reference, product value, met / not met / unknown), alternatives to rule out, missing facts, and the Japanese 項番 with its ministerial-ordinance reference. Kanmon then checks that the ECCN and paragraph exist in the current CCL and that the 項番 exists in 別表第一, and shows any failure as a verification warning. Applying the result sets the classification to *provisional*.
+- **Classification**: a low-effort planning call proposes search terms and likely entries; EyeWarnYou retrieves up to 12 candidate ECCNs (full text including notes) and the matching 貨物等省令 lines; a second call with adaptive thinking follows the Order of Review and returns, as structured output, the ECCN and paragraph, a per-parameter comparison (threshold, reference, product value, met / not met / unknown), alternatives to rule out, missing facts, and the Japanese 項番 with its ministerial-ordinance reference. EyeWarnYou then checks that the ECCN and paragraph exist in the current CCL and that the 項番 exists in 別表第一, and shows any failure as a verification warning. Applying the result sets the classification to *provisional*.
 - **Document intake**: PDFs (including scans) are sent as documents; DOCX and text are extracted locally. The structured output includes a verbatim evidence quote for every party and item and a list of concerns; nothing is saved until the reviewer creates the case.
 - **Ask the regulations**: the question is answered only from retrieved EAR and Japanese-law passages (and named ECCNs), which are numbered and must be cited.
 
@@ -179,4 +179,4 @@ Outcomes are ordered: **prohibited › license required › exception may apply 
 - **Not covered in depth**: ITAR (flagged only), deemed exports and technology transfer (a Japanese technology item is routed through the same list analysis with 外為法第25条 cited), US-person activity restrictions (§744.6), OFAC programmes beyond list hits, the bulk-license eligibility matrix (包括許可取扱要領), 別表第二の三 matching by HS code, and the METI notice (告示) that designates ¥50,000 small-value items.
 - **Chinese lists** are compiled from MOFCOM's announcement pages. Coverage of countermeasure lists issued by the Ministry of Foreign Affairs (mostly individuals) is out of scope; status changes announced by spokesperson statements are recorded manually in the notice registry.
 - **Exchange rates** for value thresholds are configured by the user.
-- **Not legal advice.** Kanmon supports, documents and speeds up a qualified reviewer's work; it does not replace legal judgment or government guidance.
+- **Not legal advice.** EyeWarnYou supports, documents and speeds up a qualified reviewer's work; it does not replace legal judgment or government guidance.

@@ -1,6 +1,6 @@
 // China — Export Control Law (出口管制法, 2020) and Regulations on Export Control of Dual-Use Items (2024).
 //
-// China attaches to a transaction in three ways, and Kanmon reports each separately:
+// China attaches to a transaction in three ways, and EyeWarnYou reports each separately:
 //   1. Ship-from: the exporter ships from China (e.g. a Chinese subsidiary) → licensing under the ECL.
 //   2. Item-following: the goods are or contain China-origin controlled items → end-user commitments
 //      (Regs Art. 24) and extraterritorial prohibitions (2024 No. 46, 2026 No. 1, Control List

@@ -1,8 +1,10 @@
-# Kanmon
+<img src="docs/images/logo.svg" width="64" alt="EyeWarnYou logo: an eye whose pupil is an exclamation mark">
+
+# EyeWarnYou
 
 **An economic-security workbench for export controls, restricted-party screening and supply-chain exposure — built for companies that trade across the US–Japan–China triangle.**
 
-Kanmon (関門, *checkpoint*) assesses a transaction under every regime that reaches it — Japan's Foreign Exchange and Foreign Trade Act, the US Export Administration Regulations and China's Export Control Law — and shows, for each one, *why* it attaches, *what* it requires, and *which provision* says so. The regulation text is ingested from primary sources and versioned; the determination is computed by a deterministic rules engine; AI (Claude) drafts classifications and reads contracts, but never decides.
+EyeWarnYou (say it aloud: *I warn you*) assesses a transaction under every regime that reaches it: Japan's Foreign Exchange and Foreign Trade Act, the US Export Administration Regulations and China's Export Control Law. For each one it shows *why* it attaches, *what* it requires, and *which provision* says so. The regulation text is ingested from primary sources and versioned; the determination is computed by a deterministic rules engine; AI (Claude) drafts classifications and reads contracts, but never decides.
 
 ![Case workspace — live determination across three jurisdictions](docs/images/case.png)
 
@@ -12,15 +14,15 @@ Kanmon (関門, *checkpoint*) assesses a transaction under every regime that rea
 
 A single shipment from Japan can be governed by three sovereigns at once:
 
-| How a regime attaches | Example | What Kanmon evaluates |
+| How a regime attaches | Example | What EyeWarnYou evaluates |
 |---|---|---|
 | **Where the goods ship from** | Goods leave Japan → FEFTA applies | List control (輸出令別表第一), the 2025 catch-all tiers (16の項), the small-value exception, export approvals for Russia/Belarus and diversion countries |
 | **What the goods are made of** | A Japanese product with a US-origin chip; a motor with Chinese dysprosium magnets | US de minimis and the Foreign Direct Product rules; China's commodity controls, end-user commitments and extraterritorial measures (2024 No. 46, 2026 No. 1, the suspended 0.1% rule) |
 | **Who is on the other side** | A consignee on the Entity List, METI's End User List or MOFCOM's Control List | Part 744 end-user controls, OFAC exposure, the Japanese WMD/conventional end-user requirements, Chinese list effects |
 
-Compliance teams usually hold this picture in their heads, across spreadsheets and PDFs, and the reasoning rarely survives into the record. Kanmon makes the jurisdictional nexus explicit, evaluates each regime from its own text, and keeps an auditable record of what was decided, by whom, and against which version of the rules.
+Compliance teams usually hold this picture in their heads, across spreadsheets and PDFs, and the reasoning rarely survives into the record. EyeWarnYou makes the jurisdictional nexus explicit, evaluates each regime from its own text, and keeps an auditable record of what was decided, by whom, and against which version of the rules.
 
-It also treats **time** as an input. Several consequential rules are currently suspended with known end dates — the US Affiliates (50%) Rule re-applies on 2026-11-10 unless extended; China's October 2025 rare-earth package, including the extraterritorial 0.1% rule, is suspended until 2026-11-10 in law and until 2027-01-10 by political agreement. Kanmon evaluates each case on its ship date and tells you which open transactions a scheduled change would affect.
+It also treats **time** as an input. Several consequential rules are currently suspended with known end dates — the US Affiliates (50%) Rule re-applies on 2026-11-10 unless extended; China's October 2025 rare-earth package, including the extraterritorial 0.1% rule, is suspended until 2026-11-10 in law and until 2027-01-10 by political agreement. EyeWarnYou evaluates each case on its ship date and tells you which open transactions a scheduled change would affect.
 
 ## Design principles
 
@@ -28,12 +30,12 @@ It also treats **time** as an input. Several consequential rules are currently s
 2. **Deterministic where the law is deterministic; human judgment where it is not.** Country Chart lookups, de minimis arithmetic, catch-all tiering and list effects are computed. Classification, end-use knowledge and screening dispositions stay with a named reviewer. AI output is labelled provisional and verified against the dataset.
 3. **Every conclusion cites its provision**, one click from the text it rests on, and every assessment records the data versions it used.
 4. **"Incomplete" is an outcome.** Unanswered questions, unresolved red flags, pending screening matches and regulation text the engine does not recognise are surfaced for review — never silently guessed.
-5. **Local-first.** Cases, documents and API keys stay on the machine running Kanmon. The only outbound traffic is to the public data sources and, if enabled, the Anthropic API.
+5. **Local-first.** Cases, documents and API keys stay on the machine running EyeWarnYou. The only outbound traffic is to the public data sources and, if enabled, the Anthropic API.
 
 ## How it works in practice
 
 1. **Start from the question.** The home screen offers three doors — *check a shipment*, *screen a company*, *classify a product* — and below them the open cases, each with the one thing it needs next.
-2. **Three answers open a case.** What is shipped, where it goes, who will use it. Kanmon screens the parties immediately and computes a first determination.
+2. **Three answers open a case.** What is shipped, where it goes, who will use it. EyeWarnYou screens the parties immediately and computes a first determination.
 3. **The answer comes first.** A case opens on the verdict (e.g. *License required — under China's Export Control Law, MOFCOM consent may be required*), the outcome under each law, and a single button for the next step: screen the parties, review a possible list match, answer the two questions only the exporter can answer, submit for review.
 4. **Reasons on demand.** Beside the inputs, each law's reasoning — why it attaches, every finding with its citation, license-exception conditions to confirm, what to do — updates as you type.
 5. **A record that survives.** The reviewer approves or rejects with reasons; the Transaction Review Record prints the determination together with the data versions it relied on.
@@ -70,7 +72,7 @@ The interface design principles are in [src/web/DESIGN.md](src/web/DESIGN.md).
 
 ## What the lists show
 
-Because Kanmon holds the US, Japanese and Chinese lists side by side and matches names with the same engine, it can measure how far they agree (What’s changing → List landscape; name-match score ≥ 92, data as of 2026-09-29):
+Because EyeWarnYou holds the US, Japanese and Chinese lists side by side and matches names with the same engine, it can measure how far they agree (What’s changing → List landscape; name-match score ≥ 92, data as of 2026-09-29):
 
 - **57%** of the 835 entities on METI's End User List also appear on a US list (319 on OFAC's SDN List, 221 on the Entity List).
 - The reverse is far smaller: **3.2%** of Entity List entries with a Chinese or Hong Kong address, **8.8%** of Russian and **19%** of Iranian entries are on METI's list. Japan's list is built around weapons-of-mass-destruction and (since 2025) conventional-weapons end users; the Entity List also targets technology acquisition, surveillance and military modernization.
@@ -85,8 +87,8 @@ Name matching over-counts namesakes and under-counts transliteration variants, s
 Requirements: Node.js 20.19+.
 
 ```bash
-git clone https://github.com/OSUGIYAMA/export-control-ai-assistant.git kanmon
-cd kanmon
+git clone https://github.com/OSUGIYAMA/EyeWarnYou.git
+cd EyeWarnYou
 npm install
 npm start            # builds the web app and serves it at http://localhost:8787
 ```
@@ -133,7 +135,7 @@ TypeScript end to end: Hono and better-sqlite3 on the server, React, TanStack Qu
 
 ## Status and limits
 
-Kanmon is decision support, not legal advice; the exporter remains responsible for compliance. Its coverage is deliberate and documented: it does not evaluate ITAR items, EU/UK/Korean/Taiwanese controls (beyond timeline events), deemed exports and technology transfers in depth, or ownership (50%) structures, which are not visible in public lists. Chinese list data comes from MOFCOM's announcement pages because China publishes no machine-readable list. See [Methodology § Limitations](docs/methodology.md#limitations).
+EyeWarnYou is decision support, not legal advice; the exporter remains responsible for compliance. Its coverage is deliberate and documented: it does not evaluate ITAR items, EU/UK/Korean/Taiwanese controls (beyond timeline events), deemed exports and technology transfers in depth, or ownership (50%) structures, which are not visible in public lists. Chinese list data comes from MOFCOM's announcement pages because China publishes no machine-readable list. See [Methodology § Limitations](docs/methodology.md#limitations).
 
 ## Roadmap
 
@@ -144,9 +146,9 @@ Kanmon is decision support, not legal advice; the exporter remains responsible f
 
 ## License and disclaimer
 
-Kanmon is released under the [Apache License 2.0](LICENSE). The regulation and list snapshots in `data/snapshots/` are derived from public government sources; their provenance, attribution statements and terms are listed in [NOTICE](NOTICE). Official publications of the issuing authorities control.
+EyeWarnYou is released under the [Apache License 2.0](LICENSE). The regulation and list snapshots in `data/snapshots/` are derived from public government sources; their provenance, attribution statements and terms are listed in [NOTICE](NOTICE). Official publications of the issuing authorities control.
 
-Kanmon is a decision-support tool, not legal advice, and it does not create a lawyer–client relationship. Its determinations, screening results and AI-generated drafts can be incomplete, out of date or wrong; export-control rules and lists change often. Users remain responsible for their own compliance and should confirm conclusions against the official texts and, where appropriate, with the licensing authorities or qualified counsel. The software is provided "as is", without warranty or liability (Apache License 2.0, sections 7 and 8).
+EyeWarnYou is a decision-support tool, not legal advice, and it does not create a lawyer–client relationship. Its determinations, screening results and AI-generated drafts can be incomplete, out of date or wrong; export-control rules and lists change often. Users remain responsible for their own compliance and should confirm conclusions against the official texts and, where appropriate, with the licensing authorities or qualified counsel. The software is provided "as is", without warranty or liability (Apache License 2.0, sections 7 and 8).
 
-The sample cases (`npm run demo`) are fictional; every party name in them is invented. Real entity names appear in the app only as they appear on the public lists. Kanmon is an independent project, not affiliated with or endorsed by any government agency or company named in it.
+The sample cases (`npm run demo`) are fictional; every party name in them is invented. Real entity names appear in the app only as they appear on the public lists. EyeWarnYou is an independent project, not affiliated with or endorsed by any government agency or company named in it.
 

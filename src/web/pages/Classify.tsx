@@ -160,7 +160,7 @@ export function ClassifyPage() {
             ) : undefined
           }
           title="Classify a product"
-          description="Describe it as the datasheet does. Kanmon drafts the ECCN and 項番 from the current regulation text, and you confirm them."
+          description="Describe it as the datasheet does. EyeWarnYou drafts the ECCN and 項番 from the current regulation text, and you confirm them."
         />
 
         <Card onKeyDown={onKeyDown}>
@@ -168,7 +168,7 @@ export function ClassifyPage() {
             <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-line px-5 py-4">
               <Tag className="size-7 shrink-0 stroke-[1.5] text-fg-3" />
               <div className="min-w-0 flex-1 basis-[300px]">
-                <div className="text-[15px] font-semibold tracking-tight">Let Kanmon draft the classification</div>
+                <div className="text-[15px] font-semibold tracking-tight">Let EyeWarnYou draft the classification</div>
                 <p className="mt-0.5 text-[13.5px] leading-relaxed text-fg-2">
                   With an Anthropic API key, Claude compares the datasheet with each candidate CCL entry and 項番 and cites the paragraph for every threshold. Without one, search the Control List below.
                 </p>
@@ -251,7 +251,7 @@ export function ClassifyPage() {
               </div>
             </Section>
 
-            <Section title="Verification" description="The references in the draft, checked against Kanmon’s copy of the regulations.">
+            <Section title="Verification" description="The references in the draft, checked against EyeWarnYou’s copy of the regulations.">
               <Card className="k-list" style={{ ["--inset" as string]: "44px" }}>
                 {checks.length === 0 ? (
                   <div className="flex gap-3 px-5 py-3 text-[14px]">

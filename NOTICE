@@ -1,4 +1,4 @@
-Kanmon
+EyeWarnYou
 Copyright 2025-2026 Tatsuya Sugiyama
 
 Licensed under the Apache License, Version 2.0 (see LICENSE).
@@ -11,7 +11,7 @@ The regulation and list snapshots in data/snapshots/ are parsed from the public
 sources below and reformatted (converted to JSON, restructured and normalized).
 They are reproduced for reference only. They are not official versions, they
 may be incomplete or out of date, and the official publications of the issuing
-authorities control. Kanmon is not affiliated with, endorsed by or sponsored by
+authorities control. EyeWarnYou is not affiliated with, endorsed by or sponsored by
 any government agency named here. Company and other entity names appear only as
 they appear in these public lists, or in clearly fictional sample data; their
 appearance implies nothing beyond the listing itself. Trademarks belong to
@@ -64,7 +64,7 @@ their respective owners.
    Official announcements of state organs and their official translations are
    excluded from copyright protection under Article 5 of the Copyright Law of the
    People's Republic of China. Entity names were extracted and restructured by
-   Kanmon; English names are as printed in the announcements. The
+   EyeWarnYou; English names are as printed in the announcements. The
    Chinese-language announcements published by MOFCOM control.
 
 Country names in data/snapshots/countries.json are derived from the
@@ -74,7 +74,7 @@ i18n-iso-countries package (MIT License, Copyright (c) 2016 widdix GmbH).
 No legal advice / no warranty
 =============================
 
-Kanmon is a decision-support tool. It does not provide legal advice, does not
+EyeWarnYou is a decision-support tool. It does not provide legal advice, does not
 create a lawyer-client relationship, and is not a substitute for the official
 regulations, for guidance from the licensing authorities (BIS, METI, MOFCOM)
 or for advice from qualified counsel. Its determinations, screening results and

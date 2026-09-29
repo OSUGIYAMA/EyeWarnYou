@@ -4,8 +4,8 @@ import path from "node:path";
 import fs from "node:fs";
 import { beforeAll, describe, expect, it } from "vitest";
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kanmon-test-"));
-process.env.KANMON_DB = path.join(dir, "test.db");
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "eyewarnyou-test-"));
+process.env.EYEWARNYOU_DB = path.join(dir, "test.db");
 
 let app: typeof import("../src/server/app.ts").app;
 
@@ -25,7 +25,7 @@ describe("API", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     id = body.case.id;
-    expect(body.case.ref).toMatch(/^KM-\d{4}-\d{4}$/);
+    expect(body.case.ref).toMatch(/^EWY-\d{4}-\d{4}$/);
     expect(body.assessment.overall).toBe("incomplete");
   });
 

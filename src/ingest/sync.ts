@@ -56,7 +56,7 @@ export const FILES = {
 
 /**
  * Bump when a parser changes how it reads the same source text. Diffs across a parser change
- * reflect Kanmon, not the regulator, so they are not reported as regulatory updates.
+ * reflect EyeWarnYou, not the regulator, so they are not reported as regulatory updates.
  */
 export const PARSER_VERSION = "2026.09.29-2";
 

@@ -76,7 +76,7 @@ function useTheme() {
     const next = !dark;
     document.documentElement.classList.toggle("dark", next);
     try {
-      localStorage.setItem("kanmon.theme", next ? "dark" : "light");
+      localStorage.setItem("eyewarnyou.theme", next ? "dark" : "light");
     } catch {
       /* private mode */
     }
@@ -109,7 +109,7 @@ export function AppShell() {
       <aside className="no-print sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-line bg-sidebar lg:flex">
         <Link to="/" className="flex h-[60px] items-center gap-2.5 px-5">
           <Logo />
-          <span className="text-[16px] font-semibold tracking-tight">Kanmon</span>
+          <span className="text-[16px] font-semibold tracking-tight">EyeWarnYou</span>
         </Link>
         <div className="px-3 pb-3">
           <button onClick={() => setPaletteOpen(true)} className="flex h-8 w-full items-center gap-2 rounded-[9px] bg-fill-2 px-2.5 text-[13px] text-fg-3 transition-colors hover:bg-fill">
@@ -197,7 +197,7 @@ function MobileBar({ onSearch }: { onSearch: () => void }) {
     <div className="no-print material sticky top-0 z-30 flex h-12 items-center gap-2 border-b border-line px-4 lg:hidden">
       <Link to="/" className="flex items-center gap-2">
         <Logo />
-        <span className="font-semibold">Kanmon</span>
+        <span className="font-semibold">EyeWarnYou</span>
       </Link>
       <button onClick={onSearch} className="ml-auto rounded-full p-1.5 text-fg-2 hover:bg-fill" aria-label="Search">
         <Search className="size-4" />
@@ -206,13 +206,14 @@ function MobileBar({ onSearch }: { onSearch: () => void }) {
   );
 }
 
-/** A gate (関門): two posts and a lintel, with the goods passing through. */
+/** An eye whose pupil is a warning mark: it watches the transaction and tells you before you ship. */
 export function Logo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={cx("size-7 shrink-0", className)} aria-hidden>
       <rect width="32" height="32" rx="7.5" className="fill-fg" />
-      <path d="M9.5 24V10.5h13V24" fill="none" className="stroke-bg" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M13.5 18.5h5" fill="none" className="stroke-bg" strokeWidth="2.6" strokeLinecap="round" />
+      <path d="M5.5 16C8.6 11 12 9 16 9s7.4 2 10.5 7c-3.1 5-6.5 7-10.5 7s-7.4-2-10.5-7Z" fill="none" className="stroke-bg" strokeWidth="2.3" strokeLinejoin="round" />
+      <path d="M16 11.9v4.1" fill="none" className="stroke-bg" strokeWidth="2.4" strokeLinecap="round" />
+      <circle cx="16" cy="19.1" r="1.35" className="fill-bg" />
     </svg>
   );
 }

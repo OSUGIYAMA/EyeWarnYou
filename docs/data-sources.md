@@ -1,6 +1,6 @@
 # Data sources
 
-Kanmon keeps its own dated copy of every source so that an assessment can be reproduced later against the rules as they stood. `npm run sync` (or **Settings → Data**) fetches the sources, parses them, validates the result, diffs it against the previous copy, and records any differences as *detected changes*. Regulation snapshots are committed to the repository under `data/snapshots/`; the large US screening file is kept in `data/cache/` and downloaded on first run.
+EyeWarnYou keeps its own dated copy of every source so that an assessment can be reproduced later against the rules as they stood. `npm run sync` (or **Settings → Data**) fetches the sources, parses them, validates the result, diffs it against the previous copy, and records any differences as *detected changes*. Regulation snapshots are committed to the repository under `data/snapshots/`; the large US screening file is kept in `data/cache/` and downloaded on first run.
 
 Every parser fails loudly rather than producing a partial dataset: each has minimum-count checks (for example, the Country Chart must yield at least 150 countries and the CCL at least 550 ECCNs) and every country name must resolve to an ISO code. When a parser changes how it reads unchanged text, the parser version in the manifest changes and that sync is treated as a re-baseline, so parser changes are never reported as regulatory changes.
 
@@ -13,7 +13,7 @@ Every parser fails loudly rather than producing a partial dataset: each has mini
 | **Commerce Country Chart** | Part 738 Supp. No. 1 | `ear-country-chart.json`: 200 countries × 16 columns, footnotes | Footnote markers are `<sup>` inside the country cell; country names include typos ("Seycheles") and variants ("Micronesia (Federated State of)") handled by an alias table. |
 | **Country Groups** | Part 740 Supp. No. 1 | `ear-country-groups.json`: A:1–A:6, B, D:1–D:5, E:1–E:2 per country | Group B is a list (`<SCOL2><LI>`), not a table; the source spells "Cote d'lvoire" with a lower-case L. |
 | **Derived lists** | Parsed from the text above | `ear-derived.json` | UN arms-embargo countries (§746.1(b)(2)); partner countries (746 Supp. No. 3); Russia/Belarus HTS-6 codes (746 Supps. 2, 4, 5, 7 — 29 / 2,405 / 363 / 53 codes); MEU items (744 Supp. No. 2 — 52 ECCNs) and destinations (§744.21(a)(1)); the 29 red flags (732 Supp. No. 3), verbatim. |
-| **Consolidated Screening List** | trade.gov downloadable file (`data.trade.gov/downloadable_consolidated_screening_list/v1/consolidated.json`), no key | `data/cache/screening.json`: 26,144 entries across 12 lists | Entity List entries carry the license requirement, licence policy and Federal Register citation, which Kanmon shows on a hit. |
+| **Consolidated Screening List** | trade.gov downloadable file (`data.trade.gov/downloadable_consolidated_screening_list/v1/consolidated.json`), no key | `data/cache/screening.json`: 26,144 entries across 12 lists | Entity List entries carry the license requirement, licence policy and Federal Register citation, which EyeWarnYou shows on a hit. |
 
 Known anomalies in the EAR text that the parsers tolerate: merged cells in the CCL (the chart column appears in the scope cell for 1C350), empty chart cells, "entireentry"-style typos, the stale §746.5 and License Exception CIV cross-references, and Entity List amendments that the eCFR could not incorporate (screen S2C Limited and Shanghai Micro Electronics Equipment manually).
 
@@ -34,7 +34,7 @@ Known anomalies in the EAR text that the parsers tolerate: merged cells in the C
 | **MOFCOM designations** — Export Control Control List (出口管制管控名单), Watch List (关注名单), Unreliable Entity List (不可靠实体清单), countermeasures (反制清单) | 27 MOFCOM announcement pages (registry in `src/ingest/mofcom.ts`) | `cn-lists.json`: 270 entries with Chinese and English names, designating notice, date and status | China publishes no machine-readable list. Annexes are parsed from `n. 中文名（English name）` lines; prose designations ("决定将A（A Corp）、B（B Inc.）…列入不可靠实体清单") and Latin-only lists are parsed as a fallback. Suspensions and stops announced by MOFCOM (e.g. after the Kuala Lumpur arrangement) are recorded with their source. |
 | **Commodity and end-use measures** | MOFCOM / GACC announcements | `src/engine/cn/measures.ts` (13 measures with dates, status, legal and political end dates) and the material map | Encoded as data from primary announcements; see the file for URLs. |
 
-OpenSanctions maintains a hand-curated dataset of Chinese designations (`cn_sanctions`); Kanmon does not use it by default because its licence (CC BY-NC) does not cover commercial use.
+OpenSanctions maintains a hand-curated dataset of Chinese designations (`cn_sanctions`); EyeWarnYou does not use it by default because its licence (CC BY-NC) does not cover commercial use.
 
 ## Versioning the regulatory baseline
 

@@ -18,7 +18,7 @@ import {
 } from "../shared/regs.ts";
 import { resolveEarCountry } from "./countries.ts";
 
-const UA = "Kanmon export-control workbench (+https://github.com/OSUGIYAMA/export-control-ai-assistant)";
+const UA = "EyeWarnYou export-control workbench (+https://github.com/OSUGIYAMA/EyeWarnYou)";
 
 export async function ecfrLatestDate(): Promise<string> {
   const res = await fetch("https://www.ecfr.gov/api/versioner/v1/titles.json", {

@@ -94,7 +94,7 @@ export function SettingsPage() {
               })}
             </Card>
             <Footer
-              note="Kanmon points out bulk-license options on list-controlled items. Whether a 項 and destination qualify is still yours to confirm."
+              note="EyeWarnYou points out bulk-license options on list-controlled items. Whether a 項 and destination qualify is still yours to confirm."
               dirty={youDirty}
               saving={saving === "you"}
               onRevert={() => revert({ userName: s.userName, company: s.company, bulkLicenses: s.bulkLicenses })}
@@ -281,7 +281,7 @@ function DataSection() {
     <Section
       id="data"
       title="Data"
-      description="Kanmon keeps its own copy of every source, so each assessment can be reproduced. Updating records what changed."
+      description="EyeWarnYou keeps its own copy of every source, so each assessment can be reproduced. Updating records what changed."
       actions={
         <Button size="sm" loading={running === "ear,jp,screening"} disabled={!!running} onClick={() => sync("ear,jp,screening")}>
           Update all

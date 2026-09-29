@@ -28,10 +28,10 @@ const VERDICT: Record<Outcome, string> = {
 function verdictDetail(c: Case, a: Assessment, p: Progress): string {
   const attached = a.jurisdictions.filter((j) => j.nexus.attaches !== false);
   if (a.overall === "incomplete") {
-    if (!c.items.length || !c.destination) return "Add the goods and the destination, and Kanmon will work out which laws apply.";
+    if (!c.items.length || !c.destination) return "Add the goods and the destination, and EyeWarnYou will work out which laws apply.";
     const todo = p.steps.filter((s) => !s.done && s.id !== "submit" && s.id !== "decide").map((s) => s.label.charAt(0).toLowerCase() + s.label.slice(1));
     const list = todo.length > 1 ? `${todo.slice(0, -1).join(", ")} and ${todo.at(-1)}` : todo[0];
-    return list ? `To decide, Kanmon needs you to ${list}. Everything else has been checked.` : "Kanmon needs a few more details before it can decide.";
+    return list ? `To decide, EyeWarnYou needs you to ${list}. Everything else has been checked.` : "EyeWarnYou needs a few more details before it can decide.";
   }
   if (a.overall === "no_license_required") return `Checked under ${attached.map((j) => J_LABEL[j.jurisdiction]?.name).join(", ")} — nothing requires a license on the facts given.`;
   if (a.overall === "not_applicable") return "None of the Japanese, US or Chinese regimes reaches this transaction.";

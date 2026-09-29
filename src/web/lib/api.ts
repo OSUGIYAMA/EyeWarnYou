@@ -1,4 +1,4 @@
-// Thin client for the Kanmon API.
+// Thin client for the EyeWarnYou API.
 import type { Case, Item, Party } from "@/shared/case.ts";
 import type { Assessment, Citation } from "@/shared/assessment.ts";
 import type { Country, CountryChart, CountryGroups, Eccn, JpAppendix1Row, RegSection, ScreeningEntry, SourceStamp } from "@/shared/regs.ts";

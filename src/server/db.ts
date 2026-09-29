@@ -1,15 +1,15 @@
 // Local SQLite store for cases, the product master, screening history, settings and the audit log.
-// Everything stays on the machine running Kanmon.
+// Everything stays on the machine running EyeWarnYou.
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { customAlphabet } from "nanoid";
 import { Case, type Case as CaseT } from "../shared/case.ts";
 
-const VAR_DIR = process.env.KANMON_DATA_DIR ?? path.resolve(import.meta.dirname, "../../var");
+const VAR_DIR = process.env.EYEWARNYOU_DATA_DIR ?? path.resolve(import.meta.dirname, "../../var");
 fs.mkdirSync(VAR_DIR, { recursive: true });
 
-export const db = new Database(process.env.KANMON_DB ?? path.join(VAR_DIR, "kanmon.db"));
+export const db = new Database(process.env.EYEWARNYOU_DB ?? path.join(VAR_DIR, "eyewarnyou.db"));
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
@@ -142,9 +142,9 @@ export function auditLog(opts: { entity?: string; entityId?: string; limit?: num
 
 function nextRef(): string {
   const year = new Date().getFullYear();
-  const row = db.prepare("SELECT ref FROM cases WHERE ref LIKE ? ORDER BY ref DESC LIMIT 1").get(`KM-${year}-%`) as { ref: string } | undefined;
+  const row = db.prepare("SELECT ref FROM cases WHERE ref LIKE ? ORDER BY ref DESC LIMIT 1").get(`EWY-${year}-%`) as { ref: string } | undefined;
   const n = row ? Number(row.ref.split("-")[2]) + 1 : 1;
-  return `KM-${year}-${String(n).padStart(4, "0")}`;
+  return `EWY-${year}-${String(n).padStart(4, "0")}`;
 }
 
 export function listCases() {

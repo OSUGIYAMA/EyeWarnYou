@@ -140,7 +140,7 @@ export function NewCasePage() {
 
   return (
     <Page>
-      <PageHeader title="Check a shipment" description="Three answers are enough to start. Kanmon works out which laws apply and asks for anything else it needs." />
+      <PageHeader title="Check a shipment" description="Three answers are enough to start. EyeWarnYou works out which laws apply and asks for anything else it needs." />
       <Segmented
         className="mb-6"
         value={mode}
@@ -203,7 +203,7 @@ export function NewCasePage() {
       {mode === "doc" && !ai && (
         <Card className="flex flex-col items-center px-6 py-12 text-center">
           <FileUp className="size-8 stroke-[1.5] text-fg-3" />
-          <div className="mt-3 text-[17px] font-semibold tracking-tight">Drop in a purchase order, and Kanmon drafts the case</div>
+          <div className="mt-3 text-[17px] font-semibold tracking-tight">Drop in a purchase order, and EyeWarnYou drafts the case</div>
           <p className="mt-1 max-w-md text-[14px] leading-relaxed text-fg-2">
             Claude reads the contract and fills in the goods, parties and route, quoting the source for every value. You check the draft before anything is saved. This needs an Anthropic API key; documents go only to the Anthropic API from this machine.
           </p>

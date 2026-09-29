@@ -65,7 +65,7 @@ export function timeline(): TimelineEvent[] {
       jurisdiction: "US",
       kind: "takes_effect",
       title: "BIS firearms / silencer amendments take effect",
-      detail: "Published at 91 FR 46252; the CCL text changes on this date. Kanmon's CCL snapshot will pick it up on the first sync after it is codified.",
+      detail: "Published at 91 FR 46252; the CCL text changes on this date. EyeWarnYou's CCL snapshot will pick it up on the first sync after it is codified.",
       certainty: "legal",
       sources: [{ label: "91 FR 46252", url: "https://www.federalregister.gov" }],
       affects: (c) => (c.items.some((i) => /^0A5/.test(i.us.eccn)) ? "Items in 0A5xx" : null),
