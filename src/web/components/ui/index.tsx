@@ -56,7 +56,7 @@ export function IconButton({ label, className, children, ...rest }: ButtonHTMLAt
 
 export function Badge({ tone = "gray", children, className, dot }: { tone?: Tone; children: ReactNode; className?: string; dot?: boolean }) {
   return (
-    <span className={cx("inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[11.5px] font-medium ring-1 ring-inset", TONE_CLASSES[tone], className)}>
+    <span className={cx("inline-flex h-5 items-center gap-1 whitespace-nowrap rounded-md px-1.5 text-[11.5px] font-medium ring-1 ring-inset", TONE_CLASSES[tone], className)}>
       {dot && <span className={cx("size-1.5 rounded-full", TONE_DOT[tone])} />}
       {children}
     </span>

@@ -7,7 +7,7 @@ import { Page, useMeta } from "../components/AppShell.tsx";
 import { CountryName } from "../components/CountryPicker.tsx";
 import { Badge, Button, Card, Empty, PageHeader, Segmented, Skeleton } from "../components/ui/index.tsx";
 import { api, type ChangeEntry } from "../lib/api.ts";
-import { cx, fmtDate, relTime, type Tone } from "../lib/format.ts";
+import { cx, fmtDate, LIST_NAMES, relTime, type Tone } from "../lib/format.ts";
 
 const KINDS: Record<string, { label: string; tone: Tone }> = {
   ccl: { label: "CCL", tone: "blue" },
@@ -29,7 +29,27 @@ const ISO_RE = /^[A-Z]{2}$/;
 function Refs({ refs, kind }: { refs: string[]; kind: string }) {
   const [all, setAll] = useState(false);
   if (kind === "screening") {
-    return <div className="mt-1.5 text-[11.5px] tabular text-fg-3">{refs.length} list entr{refs.length === 1 ? "y" : "ies"} affected</div>;
+    // Entry ids are "<LIST>:<hash>" — summarise by list.
+    const byList = new Map<string, number>();
+    for (const r of refs) {
+      const list = r.includes(":") ? r.slice(0, r.indexOf(":")) : "";
+      byList.set(list, (byList.get(list) ?? 0) + 1);
+    }
+    return (
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {[...byList.entries()]
+          .filter(([l]) => l)
+          .map(([l, n]) => (
+            <Badge key={l} tone={LIST_NAMES[l]?.tone ?? "gray"} className="whitespace-nowrap">
+              {LIST_NAMES[l]?.name ?? l}
+              <span className="font-normal tabular opacity-75">{n}</span>
+            </Badge>
+          ))}
+        <span className="text-[11.5px] tabular text-fg-3">
+          {refs.length} list entr{refs.length === 1 ? "y" : "ies"} affected
+        </span>
+      </div>
+    );
   }
   const shown = all ? refs : refs.slice(0, 12);
   return (
@@ -104,7 +124,7 @@ export function UpdatesPage() {
   return (
     <Page>
       <PageHeader
-        title="Regulatory updates"
+        title="Detected changes"
         description="Each data sync is compared with the previous snapshot. Changes to the Commerce Control List, the Country Chart, the Country Groups, Japan’s country lists and the screening lists are recorded here."
         actions={
           <Link to="/settings#data">

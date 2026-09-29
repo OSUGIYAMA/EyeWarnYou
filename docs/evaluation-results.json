@@ -1,0 +1,88 @@
+{
+  "generatedAt": "2026-09-29T18:09:38.480Z",
+  "dataVersions": {
+    "ccl": "2026-09-24",
+    "countryChart": "2026-09-24",
+    "countryGroups": "2026-09-24",
+    "jpLaw": "2026-06-05",
+    "jpList": "2026-02-14",
+    "csl": "2026-09-29",
+    "meti": "2025-09-29"
+  },
+  "ccl": {
+    "eccns": 638,
+    "controlRows": 1571,
+    "columnOnly": 1271,
+    "columnPlusText": 1,
+    "textual": 299,
+    "textualInterpreted": 281,
+    "textualForReview": 18,
+    "scopeModes": {
+      "except": 107,
+      "entire": 1119,
+      "only+conditional": 194,
+      "only": 142,
+      "except+conditional": 9
+    },
+    "reviewExamples": [
+      "0A980 SS: SS applies to entire entry. For licensing requirements (and possible License Exceptions) proceed directly to part 754 of",
+      "0A999 ?: ",
+      "0D001 ?: “Software” for items described in 0A002 is “subject to the ITAR” (see 22 CFR parts 120 through 130).",
+      "0E001 ?: “Technology” for items described in 0A002 and 0D001 (applies to “software” in 0D001 for items described in 0A002 only) i",
+      "0E982 CC: ",
+      "1A999 ?: ",
+      "1C355 ?: ",
+      "1C395 CB: CB applies to entire entry. The Commerce Country Chart is not designed to determine licensing requirements for items con",
+      "1C980 SS: SS applies to entire entry. For licensing requirements (and possible License Exceptions) proceed directly to part 754 of",
+      "1C982 SS: SS applies to entire entry. For licensing requirements (and possible License Exceptions) proceed directly to part 754 of",
+      "1C983 SS: SS applies to entire entry. For licensing requirements (and possible License Exceptions) proceed directly to part 754 of",
+      "1C984 SS: SS applies to entire entry. For licensing requirements (and possible License Exceptions) proceed directly to part 754 of"
+    ]
+  },
+  "screening": {
+    "entries": 27249,
+    "benchmark": {
+      "sampledEntries": 400,
+      "threshold": 85,
+      "byVariant": {
+        "exact": {
+          "n": 400,
+          "hit": 400,
+          "top1": 400
+        },
+        "upper case": {
+          "n": 400,
+          "hit": 400,
+          "top1": 400
+        },
+        "legal form dropped": {
+          "n": 146,
+          "hit": 145,
+          "top1": 145
+        },
+        "one typo": {
+          "n": 336,
+          "hit": 294,
+          "top1": 294
+        },
+        "word order": {
+          "n": 270,
+          "hit": 264,
+          "top1": 264
+        }
+      }
+    },
+    "negatives": {
+      "n": 62,
+      "withAnyHit": 1,
+      "examples": [
+        {
+          "name": "General Electric Company",
+          "hits": [
+            "90.8 EL General Electronic"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -349,9 +349,9 @@ export function CclPage() {
 
       <div className="grid gap-6 xl:grid-cols-[232px_minmax(0,1fr)]">
         {/* Categories — vertical on wide screens, wrapping pills below */}
-        <nav aria-label="CCL categories" className="self-start xl:sticky xl:top-6">
+        <nav aria-label="CCL categories" className="min-w-0 self-start xl:sticky xl:top-6">
           <SectionLabel className="mb-2 hidden px-2 xl:block">Categories</SectionLabel>
-          <div className="flex flex-wrap gap-1.5 xl:flex-col xl:gap-0.5">
+          <div className="flex flex-wrap gap-1.5 xl:flex-col xl:flex-nowrap xl:gap-0.5">
             {index.isLoading
               ? Array.from({ length: 10 }, (_, i) => <Skeleton key={i} className="h-8 w-40 xl:w-full" />)
               : categories.map((c) => {
@@ -364,13 +364,13 @@ export function CclPage() {
                       title={c.title}
                       aria-current={active ? "page" : undefined}
                       className={cx(
-                        "flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors xl:w-full",
+                        "flex h-8 min-w-0 items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition-colors xl:w-full",
                         active ? "bg-panel font-medium text-fg shadow-sm ring-1 ring-line" : "text-fg-2 ring-1 ring-transparent hover:bg-panel-2 hover:text-fg max-xl:ring-line",
                       )}
                     >
                       <span className={cx("w-3 font-mono text-[12px]", active ? "text-fg" : "text-fg-3")}>{c.id}</span>
-                      <span className="truncate">{categoryLabel(c.id, c.title)}</span>
-                      <span className="ml-auto pl-2 text-[11.5px] tabular text-fg-3">{counts[c.id] ?? 0}</span>
+                      <span className="min-w-0 flex-1 truncate">{categoryLabel(c.id, c.title)}</span>
+                      <span className="shrink-0 pl-2 text-right text-[11.5px] tabular text-fg-3">{counts[c.id] ?? 0}</span>
                     </button>
                   );
                 })}
@@ -447,7 +447,9 @@ export function CclPage() {
                   <h2 className="text-[15px] font-semibold tracking-tight">
                     Category {cat} — {categoryLabel(cat, current.title)}
                   </h2>
-                  <div className="mt-0.5 text-[12.5px] text-fg-3">{current.title.replace(/[“”]/g, "")}</div>
+                  {current.title.replace(/[“”"]/g, "").trim() !== categoryLabel(cat, current.title) && (
+                    <div className="mt-0.5 text-[12.5px] text-fg-3">{current.title.replace(/[“”]/g, "")}</div>
+                  )}
                 </div>
               )}
               {groups.map(({ g, rows }) => (
@@ -543,17 +545,16 @@ function QuickCheck({ id }: { id: string }) {
           const r = results[i];
           const s = r.data ? summarize(r.data.rows) : null;
           return (
-            <div key={dest} className="flex items-center gap-2 px-4 py-2">
-              <Link to={`/regulations/countries/${dest}`} className="min-w-0 flex-1 truncate text-[13px] text-fg hover:underline">
-                <CountryName iso2={dest} />
-              </Link>
-              {r.isError ? (
-                <span className="text-[12px] text-fg-3">Unavailable</span>
-              ) : !s ? (
-                <Skeleton className="h-5 w-20" />
-              ) : (
-                <>
-                  {s.reasons.length > 0 && <span className="truncate font-mono text-[11px] text-fg-3">{s.reasons.join(" ")}</span>}
+            <div key={dest} className="px-4 py-2">
+              <div className="flex items-center gap-2">
+                <Link to={`/regulations/countries/${dest}`} className="min-w-0 flex-1 truncate text-[13px] text-fg hover:underline">
+                  <CountryName iso2={dest} />
+                </Link>
+                {r.isError ? (
+                  <span className="text-[12px] text-fg-3">Unavailable</span>
+                ) : !s ? (
+                  <Skeleton className="h-5 w-20" />
+                ) : (
                   <Tooltip content={s.detail} side="left">
                     <span className="shrink-0">
                       <Badge tone={s.tone} dot={s.tone !== "neutral"}>
@@ -561,8 +562,9 @@ function QuickCheck({ id }: { id: string }) {
                       </Badge>
                     </span>
                   </Tooltip>
-                </>
-              )}
+                )}
+              </div>
+              {s && s.reasons.length > 0 && <div className="mt-0.5 pl-[34px] font-mono text-[11px] text-fg-3">{s.reasons.join(" · ")}</div>}
             </div>
           );
         })}
@@ -711,7 +713,7 @@ export function EccnPage() {
               </Link>
             }
           >
-            It may have been removed or renumbered in a later amendment — check Regulatory updates. Items not described by any ECCN are EAR99.
+            It may have been removed or renumbered in a later amendment — check Detected changes. Items not described by any ECCN are EAR99.
           </Empty>
         </Card>
       ) : (

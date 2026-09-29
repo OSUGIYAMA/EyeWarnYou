@@ -38,8 +38,8 @@ export function CountryPicker({ value, onChange, placeholder = "Select country",
           {current ? (
             <>
               <span className="rounded bg-panel-2 px-1 font-mono text-[11px] text-fg-2 ring-1 ring-line">{current.iso2}</span>
-              <span className="truncate">{current.en}</span>
-              <span className="ml-auto flex gap-1.5 text-[10.5px] font-medium">
+              <span className="min-w-0 truncate">{current.en}</span>
+              <span className="ml-auto flex shrink-0 gap-1.5 whitespace-nowrap text-[10.5px] font-medium">
                 {!compact && countryTags(current).map((t) => <span key={t.label} className={t.tone}>{t.label}</span>)}
               </span>
             </>

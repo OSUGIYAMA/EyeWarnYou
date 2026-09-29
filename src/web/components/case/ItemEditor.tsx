@@ -89,7 +89,7 @@ export function ItemEditor({
             </Field>
             <Field label="Type">
               <Select value={item.kind} onChange={(e) => onChange((i) => void (i.kind = e.target.value as Item["kind"]), true)}>
-                <option value="commodity">Commodity (goods)</option>
+                <option value="commodity">Goods</option>
                 <option value="software">Software</option>
                 <option value="technology">Technology</option>
               </Select>
@@ -102,8 +102,8 @@ export function ItemEditor({
             </Field>
             <Field label="Unit value">
               <div className="flex gap-1.5">
-                <Input type="number" min={0} value={item.unitValue ?? ""} onChange={(e) => onChange((i) => void (i.unitValue = e.target.value === "" ? undefined : Number(e.target.value)))} className="tabular" />
-                <Select value={item.currency} onChange={(e) => onChange((i) => void (i.currency = e.target.value as Item["currency"]), true)} className="w-[76px] shrink-0">
+                <Input type="number" min={0} value={item.unitValue ?? ""} onChange={(e) => onChange((i) => void (i.unitValue = e.target.value === "" ? undefined : Number(e.target.value)))} className="min-w-0 flex-1 tabular" />
+                <Select value={item.currency} onChange={(e) => onChange((i) => void (i.currency = e.target.value as Item["currency"]), true)} className="w-[68px] shrink-0 pr-5">
                   {CURRENCIES.map((x) => (
                     <option key={x}>{x}</option>
                   ))}
@@ -119,8 +119,7 @@ export function ItemEditor({
                     <Badge tone={hsInfo.data.jpCatchAll === "16-1" ? "orange" : hsInfo.data.jpCatchAll === "16-2" ? "blue" : "gray"}>
                       {hsInfo.data.jpCatchAll === "16-1" ? "JP 16の項（1）sensitive goods" : hsInfo.data.jpCatchAll === "16-2" ? "JP 16の項（2）" : "Outside JP catch-all"}
                     </Badge>
-                    {hsInfo.data.russia.supp4 && <Badge tone="red">EAR Russia Supp. 4</Badge>}
-                    {hsInfo.data.russia.supp5 && <Badge tone="red">EAR Russia Supp. 5</Badge>}
+                    {(hsInfo.data.russia.supp4 || hsInfo.data.russia.supp5) && <Badge tone={russiaScope ? "red" : "amber"}>{russiaScope ? "EAR99 licence to RU/BY" : "EAR Russia HTS list"} · Supp. {hsInfo.data.russia.supp4 ? "4" : "5"}</Badge>}
                     {hsInfo.data.russia.supp7 && <Badge tone="amber">EAR Supp. 7 (FDP / Iran)</Badge>}
                   </span>
                 ) : (

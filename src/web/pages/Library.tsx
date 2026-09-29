@@ -203,10 +203,21 @@ export function LibraryPage() {
   const prev = pos > 0 ? ordered[pos - 1] : undefined;
   const next = pos >= 0 && pos < ordered.length - 1 ? ordered[pos + 1] : undefined;
 
+  // Bring an externally chosen section (deep link, prev/next, search hit) into the list pane. Only the pane
+  // scrolls — scrollIntoView would also move the window. Clicks inside the list never move it.
+  const clickedInList = useRef(false);
   useEffect(() => {
-    if (!sel) return;
-    const el = listRef.current?.querySelector(`[data-sid="${CSS.escape(sel)}"]`);
-    el?.scrollIntoView({ block: "nearest" });
+    const box = listRef.current;
+    if (!sel || !box) return;
+    if (clickedInList.current) {
+      clickedInList.current = false;
+      return;
+    }
+    const el = box.querySelector<HTMLElement>(`[data-sid="${CSS.escape(sel)}"]`);
+    if (!el) return;
+    const top = el.offsetTop;
+    const header = 40; // sticky part header
+    if (top < box.scrollTop + header || top + el.offsetHeight > box.scrollTop + box.clientHeight * 0.7) box.scrollTop = Math.max(0, top - box.clientHeight * 0.3);
   }, [sel, sections.data]);
 
   useEffect(() => {
@@ -254,7 +265,7 @@ export function LibraryPage() {
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[264px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)]">
         {/* Section list */}
         <Card className="flex flex-col overflow-hidden self-start lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)]">
           <div className="space-y-2 border-b border-line p-3">
@@ -279,7 +290,7 @@ export function LibraryPage() {
               />
             </div>
           </div>
-          <div ref={listRef} className="scroll-thin max-h-[60vh] flex-1 overflow-y-auto pb-2 lg:max-h-none">
+          <div ref={listRef} className="scroll-thin relative max-h-[60vh] flex-1 overflow-y-auto pb-2 lg:max-h-none">
             {sections.isLoading ? (
               <div className="space-y-2 p-3">
                 {Array.from({ length: 12 }, (_, i) => (
@@ -305,6 +316,7 @@ export function LibraryPage() {
                           type="button"
                           data-sid={s.id}
                           onClick={() => {
+                            clickedInList.current = s.id !== sel;
                             select(s.id);
                             setShowResults(false);
                           }}
@@ -421,7 +433,7 @@ export function LibraryPage() {
             <>
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2 text-[12.5px] text-fg-3">
-                  <Badge tone={sel.startsWith("jp:") ? "violet" : "blue"}>{sel.startsWith("jp:") ? "Japan" : "US EAR"}</Badge>
+                  <Badge tone={sel.startsWith("jp:") ? "violet" : "blue"} className="shrink-0 whitespace-nowrap">{sel.startsWith("jp:") ? "Japan" : "US EAR"}</Badge>
                   {current && (
                     <span className="truncate">
                       {partLabel(current.source, current.part)} · {partTitle(current.source, current.part)}

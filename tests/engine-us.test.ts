@@ -162,3 +162,18 @@ describe("US — Affiliates Rule timing", () => {
     expect(later.outcome).toBe("incomplete");
   });
 });
+
+describe("US — regressions", () => {
+  it("advanced-computing exceptions limited to 3A001.z do not surface for 3A001.b.2", () => {
+    const c = kase({ destination: "KR", items: [item({ us: { origin: "us_origin", eccn: "3A001", paragraph: "b.2", controlOverrides: { "0": true, "2": true } } })] });
+    const codes = us(c).items[0].exceptions.map((e) => e.code);
+    expect(codes).not.toContain("NAC/ACA");
+    expect(codes).not.toContain("AIA");
+  });
+
+  it("a red flag keeps the case incomplete until the inquiry is recorded as resolved", () => {
+    const base = { destination: "DE", items: [item({ us: { origin: "us_origin", eccn: "EAR99" } })] };
+    expect(us(kase({ ...base, answers: cleanAnswers({ "us.redflag.9": "yes" }) })).outcome).toBe("incomplete");
+    expect(us(kase({ ...base, answers: cleanAnswers({ "us.redflag.9": "yes", "us.redflagsResolved": "yes" }) })).outcome).toBe("no_license_required");
+  });
+});

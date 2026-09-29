@@ -55,6 +55,12 @@ export const FILES = {
   screening: "screening.json", // in CACHE_DIR (large, volatile)
 } as const;
 
+/**
+ * Bump when a parser changes how it reads the same source text. Diffs across a parser change
+ * reflect Kanmon, not the regulator, so they are not reported as regulatory updates.
+ */
+export const PARSER_VERSION = "2026.09.29-2";
+
 const EAR_PARTS = ["730", "732", "734", "736", "738", "740", "742", "743", "744", "746", "748", "750", "758", "760", "762", "764", "772", "774"];
 
 export type SyncTarget = "ear" | "jp" | "screening";
@@ -86,6 +92,8 @@ export async function runSync(
   const prevManifest = readSnapshot<DataManifest>(FILES.manifest);
   const manifest: DataManifest = prevManifest ?? { generatedAt: now, stamps: {}, counts: {} };
   const changes: ChangeEntry[] = [];
+  const parserChanged = !!prevManifest && (prevManifest as DataManifest & { parserVersion?: string }).parserVersion !== PARSER_VERSION;
+  if (parserChanged) onProgress({ step: "diff", detail: "Parser version changed — this sync re-baselines the snapshots; differences are not reported as regulatory updates" });
 
   let chart = readSnapshot<CountryChart>(FILES.chart);
   let groups = readSnapshot<CountryGroups>(FILES.groups);
@@ -237,8 +245,10 @@ export async function runSync(
   }
 
   manifest.generatedAt = now;
+  (manifest as DataManifest & { parserVersion?: string }).parserVersion = PARSER_VERSION;
   write(SNAP_DIR, FILES.manifest, manifest);
 
+  if (parserChanged) changes.length = 0;
   if (changes.length) {
     const log = readSnapshot<ChangeEntry[]>(FILES.changelog) ?? [];
     const stamped = changes.map((c) => ({ ...c, detectedAt: now }));

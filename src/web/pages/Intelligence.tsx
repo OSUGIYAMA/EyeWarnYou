@@ -72,7 +72,7 @@ export function IntelligencePage() {
           <p className="mt-1 max-w-3xl text-[13.5px] text-fg-2">
             Scheduled changes across the US, Japan and China — suspensions that lapse, rules that take effect, new designations — with the open cases each one would change. Text-level changes detected in the regulation data are listed under{" "}
             <Link to="/regulations/updates" className="text-accent-text hover:underline">
-              Regulatory updates
+              Detected changes
             </Link>
             .
           </p>

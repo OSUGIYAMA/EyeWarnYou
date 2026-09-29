@@ -228,9 +228,9 @@ export function ChartPage() {
             Check that the Kanmon server is running and the regulatory data has been synced (Settings → Data).
           </Empty>
         ) : (
-          <table className="w-full min-w-[820px] border-separate border-spacing-0 text-[12.5px]" onMouseOver={(e) => setHover((e.target as HTMLElement).closest("td")?.dataset.col ?? null)} onMouseLeave={() => setHover(null)}>
+          <table className="w-full min-w-[860px] table-fixed border-separate border-spacing-0 text-[12.5px]" onMouseOver={(e) => setHover((e.target as HTMLElement).closest("td")?.dataset.col ?? null)} onMouseLeave={() => setHover(null)}>
             <colgroup>
-              <col className="w-[240px]" />
+              <col className="w-[248px]" />
               {CHART_COLUMNS.map((c) => (
                 <col key={c} className={cx(hover === c ? "bg-accent-soft/70" : cols.includes(c) && "bg-accent-soft/35")} />
               ))}

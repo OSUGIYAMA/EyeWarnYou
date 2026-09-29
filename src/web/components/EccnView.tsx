@@ -30,7 +30,7 @@ export function EccnBody({ eccn, highlight, compact }: { eccn: EccnDetail; highl
       <div className="flex flex-wrap items-start gap-3">
         <Mono className="rounded-lg bg-panel-2 px-2 py-1 text-[15px] font-semibold ring-1 ring-line">{eccn.id}</Mono>
         <div className="min-w-0 flex-1">
-          <div className={cx("font-medium leading-snug", compact ? "text-[14px]" : "text-[16px]")}>{eccn.heading}</div>
+          <div className={cx("font-medium leading-snug", compact ? "text-[14px]" : "text-[16px]")}>{eccn.heading.replace(/\s*\(see List of Items Controlled\)\.?/i, "")}</div>
           <div className="mt-1 text-[12px] text-fg-3">
             Category {eccn.category} — {eccn.categoryTitle.replace(/\s*\(.*$/, "")} · Group {eccn.group}
           </div>

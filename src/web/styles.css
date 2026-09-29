@@ -123,6 +123,14 @@ body {
 ::selection {
   background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
 .tabular {
   font-variant-numeric: tabular-nums;
 }

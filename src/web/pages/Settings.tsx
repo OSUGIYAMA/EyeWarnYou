@@ -229,7 +229,7 @@ function DataCard() {
           ))}
           {changes && (
             <div className="mt-2 font-sans text-[12.5px]">
-              {changes.length === 0 ? "No changes since the previous update." : `${changes.length} change${changes.length > 1 ? "s" : ""} detected — see Regulatory updates.`}
+              {changes.length === 0 ? "No changes since the previous update." : `${changes.length} change${changes.length > 1 ? "s" : ""} detected — see Detected changes.`}
             </div>
           )}
         </div>

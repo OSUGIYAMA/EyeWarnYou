@@ -159,7 +159,7 @@ export interface JpCountryLists {
   concern: string[]; // 別表第四
   /** 別表第二の四 — third countries covered by the Russia-diversion approval requirement (第2条第1項第1号の8). */
   russiaDiversion: string[];
-  /** 別表第三の三 raw text (items subject to 通常兵器 catch-all for 一般国 via 告示). */
+  /** 別表第三の三 raw text — goods whose small-value exception limit is ¥50,000 instead of ¥1,000,000 (輸出令第4条第1項第5号). */
   appendix3_3: string;
   raw: Record<string, string>;
 }

@@ -1,6 +1,6 @@
 // Country reference: every destination's EAR Country Groups, Country Chart row and Japanese FEFTA tiers.
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUpDown, ExternalLink, Globe2, ScanSearch, Search, ShieldAlert } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowUpDown, Check, ExternalLink, Globe2, ScanSearch, Search, ShieldAlert } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { CHART_COLUMNS, CHART_REASONS, COUNTRY_GROUP_IDS, type ChartColumn } from "@/shared/regs.ts";
@@ -253,9 +253,9 @@ const GROUP_FALLBACK: Record<string, string> = {
   "A:2": "Missile Technology Control Regime",
   "A:3": "Australia Group",
   "A:4": "Nuclear Suppliers Group",
-  "A:5": "License Exception STA — broadest eligibility",
-  "A:6": "License Exception STA — limited eligibility",
-  B: "Eligible for license exceptions such as GBS",
+  "A:5": "STA — broadest eligibility",
+  "A:6": "STA — limited eligibility",
+  B: "License exceptions such as GBS",
   "D:1": "National security",
   "D:2": "Nuclear",
   "D:3": "Chemical & biological",
@@ -305,6 +305,26 @@ const EMBARGO: Record<string, { sec: string; title: string; text: string }> = {
     sec: "746.6",
     title: "Crimea, DNR and LNR regions",
     text: "A license is required for all items subject to the EAR destined to these regions, except EAR99 food and medicine and certain personal-communications software. The rest of Ukraine follows its Country Chart row.",
+  },
+};
+
+/** Japan's destination-specific export approval regimes (輸出令 第2条第1項). */
+const JP_SANCTIONS: Record<string, { title: string; text: string }> = {
+  RU: {
+    title: "Russia — export approval regime",
+    text: "Export approval (輸出承認) is required for goods in 別表第二の三 (輸出令 第2条第1項第1号の4) and for any goods in transactions with persons designated by METI notice (第1号の7).",
+  },
+  BY: {
+    title: "Belarus — export approval regime",
+    text: "Export approval (輸出承認) is required for goods in 別表第二の三, with listed exclusions (輸出令 第2条第1項第1号の3), and for any goods in transactions with persons designated by METI notice (第1号の6).",
+  },
+  KP: {
+    title: "North Korea — comprehensive export ban",
+    text: "Export approval (輸出承認) is required for goods in 別表第二の二 destined to North Korea (輸出令 第2条第1項第1号の2).",
+  },
+  UA: {
+    title: "Donetsk and Luhansk areas",
+    text: "Export approval (輸出承認) is required for goods to the areas of Donetsk and Luhansk designated by METI notice (輸出令 第2条第1項第1号の5).",
   },
 };
 
@@ -471,6 +491,7 @@ export function CountryPage() {
     return l && l !== g && !/^Country Group/i.test(l) ? l : GROUP_FALLBACK[g] ?? g;
   };
   const embargo = EMBARGO[iso];
+  const jpSanction = JP_SANCTIONS[iso];
   const home = iso === "JP";
   const tiers = jpTiers(c);
   const catchAll = c.jp.groupA
@@ -504,9 +525,6 @@ export function CountryPage() {
             </span>
           </div>
         </div>
-        <Link to={`/screening?country=${iso}`}>
-          <Button icon={<ScanSearch className="size-3.5" />}>Screen a party in {c.en}</Button>
-        </Link>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
@@ -546,7 +564,7 @@ export function CountryPage() {
                         <span className={cx("min-w-0 flex-1 truncate", on ? "text-fg" : "text-fg-3")} title={labelFor(g)}>
                           {labelFor(g)}
                         </span>
-                        {on ? <span className={cx("text-[11.5px] font-medium", tone)}>Member</span> : <span className="text-[11.5px] text-fg-3/70">—</span>}
+                        {on ? <Check className={cx("size-3.5 shrink-0", tone)} strokeWidth={2.5} aria-label="Member" /> : <span className="w-3.5 shrink-0 text-center text-[11.5px] text-fg-3/60">—</span>}
                       </div>
                     );
                   })}
@@ -622,6 +640,20 @@ export function CountryPage() {
               <div className="px-4 py-4 text-[12.5px] text-fg-2">Japan is the exporting country; the destination tiers of the Export Trade Control Order do not apply.</div>
             ) : (
               <>
+                {jpSanction && (
+                  <div className="border-b border-line px-4 py-3">
+                    <div className="flex gap-3 rounded-lg border border-amber/30 bg-amber-soft px-3.5 py-3">
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-text" />
+                      <div className="min-w-0 text-[12.5px] leading-relaxed">
+                        <div className="font-medium text-amber-text">{jpSanction.title}</div>
+                        <div className="mt-0.5 text-fg-2">{jpSanction.text}</div>
+                        <div className="mt-1.5">
+                          <CiteButton onClick={() => open({ kind: "section", id: `${ORDER_SECTION}:2`, label: "輸出令 第2条" })}>Read 輸出令 第2条</CiteButton>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="divide-y divide-line">
                   <FeftaRow on={c.jp.groupA} title="Group A" ja="別表第三" cite={{ id: `${ORDER_SECTION}:別表第三`, label: "輸出令 別表第三" }}>
                     {c.jp.groupA ? (

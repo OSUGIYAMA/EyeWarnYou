@@ -70,20 +70,25 @@ export function stem(t: string): string {
   return t;
 }
 
+/** Optimal string alignment distance (Levenshtein + adjacent transposition as one edit). */
 export function levenshtein(a: string, b: string): number {
   if (a === b) return 0;
-  const prev = new Array<number>(b.length + 1);
-  for (let j = 0; j <= b.length; j++) prev[j] = j;
-  for (let i = 1; i <= a.length; i++) {
-    let diag = prev[0];
-    prev[0] = i;
-    for (let j = 1; j <= b.length; j++) {
-      const tmp = prev[j];
-      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diag + (a[i - 1] === b[j - 1] ? 0 : 1));
-      diag = tmp;
+  const n = a.length;
+  const m = b.length;
+  let prev2 = new Array<number>(m + 1).fill(0);
+  let prev = Array.from({ length: m + 1 }, (_, j) => j);
+  for (let i = 1; i <= n; i++) {
+    const cur = new Array<number>(m + 1);
+    cur[0] = i;
+    for (let j = 1; j <= m; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], prev2[j - 2] + 1);
     }
+    prev2 = prev;
+    prev = cur;
   }
-  return prev[b.length];
+  return prev[m];
 }
 
 /**

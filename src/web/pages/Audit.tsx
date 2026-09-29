@@ -6,7 +6,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Page } from "../components/AppShell.tsx";
 import { Button, Card, Empty, Input, PageHeader, Segmented, Skeleton } from "../components/ui/index.tsx";
 import { api } from "../lib/api.ts";
-import { cx, relTime } from "../lib/format.ts";
+import { cx, LIST_NAMES, relTime } from "../lib/format.ts";
 
 interface AuditEvent {
   id: number;
@@ -56,7 +56,11 @@ function fmtValue(v: unknown): string {
   if (v === null || v === undefined) return "—";
   if (typeof v === "boolean") return v ? "yes" : "no";
   if (typeof v === "number") return v.toLocaleString("en-US");
-  if (typeof v === "string") return v;
+  if (typeof v === "string") {
+    // Screening entry ids are "<LIST>:<hash>" — show the list name and a short hash.
+    const m = v.match(/^([A-Z][A-Z-]+):([0-9a-f]{12,})$/);
+    return m ? `${LIST_NAMES[m[1]]?.name ?? m[1]} · ${m[2].slice(0, 8)}` : v;
+  }
   if (Array.isArray(v)) return v.every((x) => typeof x !== "object" || x === null) ? v.join(", ") : `${v.length} items`;
   return JSON.stringify(v);
 }

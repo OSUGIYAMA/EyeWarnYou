@@ -420,11 +420,13 @@ export function parseControlRow(scopeRaw: string, chartRaw: string, eccnId = "")
   const reasonMatch = scope.match(/^([A-Z]{2,3})\b/);
   const reason = reasonMatch ? reasonMatch[1] : "?";
   const columns = new Set<ChartColumn>();
-  for (const m of chart.matchAll(/\b(CB|NP|NS|MT|RS|FC|CC|AT)\s+Column\s+(\d)/g)) {
+  // Source anomaly: some rows have the chart column merged into the scope cell ("CB applies to entire entry CB Column 2").
+  const chartSource = chart || (/\bColumn\s+\d/.test(scope) ? scope.replace(/^.*?(?=\b(CB|NP|NS|MT|RS|FC|CC|AT)\s+Column)/, "") : "");
+  for (const m of chartSource.matchAll(/\b(CB|NP|NS|MT|RS|FC|CC|AT)\s+Column\s+(\d)/g)) {
     const col = `${m[1]}${m[2]}` as ChartColumn;
     if (CHART_COLUMNS.includes(col)) columns.add(col);
   }
-  const body = scope.replace(/^[A-Z]{2,3}(?:\s*(?:,|and)\s*[A-Z]{2,3})*\s+(?:applies|apply)\s+(?:to\s+)?/i, "");
+  const body = scope.replace(/\s*\b(CB|NP|NS|MT|RS|FC|CC|AT)\s+Column\s+\d\.?$/, "").replace(/^[A-Z]{2,3}(?:\s*(?:,|and)\s*[A-Z]{2,3})*\s+(?:applies|apply)\s+(?:to\s+)?/i, "");
   let mode: EccnControl["mode"];
   let paragraphs: string[] = [];
   let conditional = false;
@@ -440,7 +442,7 @@ export function parseControlRow(scopeRaw: string, chartRaw: string, eccnId = "")
     conditional = /\b(when|if|unless|provided|except|usable|designed or modified|for use in)\b/i.test(body) || paragraphs.length === 0;
   }
   // A chart cell is "simple" when it is only column references (e.g. "NS Column 2.").
-  const residue = chart
+  const residue = (chart || chartSource)
     .replace(/\b(CB|NP|NS|MT|RS|FC|CC|AT)\s+Column\s+\d/g, "")
     .replace(/[\s.,;]|\band\b|\bor\b/gi, "");
   const special = columns.size === 0 || residue.length > 0;

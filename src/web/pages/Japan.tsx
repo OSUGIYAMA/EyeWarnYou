@@ -254,10 +254,10 @@ function ListControl({ data, loading }: { data?: JpListResponse; loading: boolea
   const hits = search.data?.results ?? [];
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[220px_minmax(0,1fr)]">
-      <nav aria-label="項 index" className="self-start xl:sticky xl:top-6">
+    <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
+      <nav aria-label="項 index" className="min-w-0 self-start xl:sticky xl:top-6">
         <SectionLabel className="mb-2 hidden px-2 xl:block">項 (rows)</SectionLabel>
-        <div className="flex flex-wrap gap-1.5 xl:flex-col xl:gap-0.5">
+        <div className="flex flex-wrap gap-1.5 xl:flex-col xl:flex-nowrap xl:gap-0.5">
           {KOU.map((k) => (
             <a
               key={k.kou}
@@ -267,11 +267,12 @@ function ListControl({ data, loading }: { data?: JpListResponse; loading: boolea
                 setQ("");
                 requestAnimationFrame(() => document.getElementById(`kou-${k.kou}`)?.scrollIntoView({ block: "start", behavior: "smooth" }));
               }}
-              className="flex h-8 items-center gap-2 rounded-lg px-2.5 text-[13px] text-fg-2 ring-1 ring-transparent transition-colors hover:bg-panel-2 hover:text-fg max-xl:ring-line"
+              title={`${k.kou}の項 — ${k.en}`}
+              className="flex h-8 min-w-0 items-center gap-2 rounded-lg px-2.5 text-[13px] text-fg-2 ring-1 ring-transparent transition-colors hover:bg-panel-2 hover:text-fg max-xl:ring-line xl:w-full"
             >
               <span className="w-9 shrink-0 font-mono text-[11.5px] text-fg-3">{k.kou}</span>
-              <span className="truncate">{k.en}</span>
-              <span className="ml-auto pl-2 text-[11.5px] tabular text-fg-3">{grouped.get(k.kou)?.length ?? ""}</span>
+              <span className="min-w-0 flex-1 truncate">{k.en}</span>
+              <span className="shrink-0 pl-2 text-right text-[11.5px] tabular text-fg-3">{grouped.get(k.kou)?.length ?? ""}</span>
             </a>
           ))}
         </div>
@@ -309,7 +310,7 @@ function ListControl({ data, loading }: { data?: JpListResponse; loading: boolea
               <div className="divide-y divide-line">
                 {hits.map((h) => (
                   <button key={h.id} type="button" onClick={() => onHit(h)} className="flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors hover:bg-panel-2/60 focus-visible:bg-panel-2 focus-visible:outline-none">
-                    <Badge tone={h.kind === "appendix1" ? "blue" : "violet"} className="mt-px shrink-0">
+                    <Badge tone={h.kind === "appendix1" ? "blue" : "violet"} className="mt-px w-[104px] shrink-0 justify-center whitespace-nowrap">
                       {h.kind === "appendix1" ? "輸出令 別表第一" : "貨物等省令"}
                     </Badge>
                     <div className="min-w-0 flex-1">
@@ -456,8 +457,9 @@ function Applies({ on }: { on: boolean }) {
 
 function CatchAll({ derived }: { derived?: JpDerived }) {
   const open = useRegSheet();
-  const [input, setInput] = useState("");
-  const [code, setCode] = useState("");
+  const [params] = useSearchParams();
+  const [input, setInput] = useState(params.get("hs") ?? "");
+  const [code, setCode] = useState(params.get("hs") ?? "");
   const digits = code.replace(/\D/g, "");
   const hs = useQuery({ queryKey: ["hs", digits], queryFn: () => api.get<HsResult>(`/hs/${digits}`), enabled: digits.length > 0, staleTime: Infinity });
   const submit = (e?: FormEvent) => {

@@ -7,6 +7,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { app as api } from "./app.ts";
 import { store } from "./store.ts";
+import { runSync } from "../ingest/sync.ts";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const WEB_DIR = path.resolve(import.meta.dirname, "../../dist/web");
@@ -14,7 +15,18 @@ const WEB_DIR = path.resolve(import.meta.dirname, "../../dist/web");
 const started = Date.now();
 store.load();
 console.log(`Loaded regulatory data in ${Date.now() - started} ms — ${store.data.ccl.eccns.length} ECCNs, ${store.data.screening.entries.length.toLocaleString()} screening entries, ${store.sections.size} regulation sections`);
-if (!store.data.screening.entries.some((e) => e.list !== "METI-EUL")) console.warn("⚠ US screening lists are not downloaded yet — run `npm run sync` (or use Settings → Data).");
+if (!store.data.screening.entries.some((e) => e.list === "EL")) {
+  if (process.env.KANMON_OFFLINE) console.warn("⚠ US screening lists are not downloaded (offline mode) — run `npm run sync` when online.");
+  else {
+    console.log("Downloading the US Consolidated Screening List in the background (first run)…");
+    runSync(["screening"])
+      .then(() => {
+        store.load();
+        console.log(`Screening lists ready — ${store.data.screening.entries.length.toLocaleString()} entries.`);
+      })
+      .catch((e) => console.warn(`⚠ Could not download screening lists: ${(e as Error).message}. Use Settings → Data to retry.`));
+  }
+}
 
 const root = new Hono();
 

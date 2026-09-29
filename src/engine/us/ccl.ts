@@ -160,7 +160,8 @@ export function evaluateControls(eccn: Eccn, paragraph: string, overrides: Recor
       note = control.chart;
     } else {
       textual = true;
-      const r = interpretChartText(control.chart, dest, data);
+      // When the chart cell is empty the requirement is often stated in the scope cell itself.
+      const r = interpretChartText(control.chart || control.scope, dest, data);
       if (r) {
         licenseRequired = r.required ? "yes" : "no";
         note = r.why;

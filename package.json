@@ -10,11 +10,13 @@
   "scripts": {
     "dev": "concurrently -k -n api,web -c blue,magenta \"tsx watch --clear-screen=false src/server/main.ts\" \"vite\"",
     "build": "vite build",
-    "start": "NODE_ENV=production tsx src/server/main.ts",
+    "start": "vite build --logLevel warn && NODE_ENV=production tsx src/server/main.ts",
     "sync": "tsx scripts/sync.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "demo": "tsx scripts/seed-demo.ts"
+    "demo": "tsx scripts/seed-demo.ts",
+    "serve": "NODE_ENV=production tsx src/server/main.ts",
+    "evaluate": "tsx scripts/evaluate.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",

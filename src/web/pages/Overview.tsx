@@ -135,7 +135,7 @@ export function OverviewPage() {
           </Card>
 
           <Card>
-            <CardHeader title="Regulatory updates" subtitle="Detected by comparing each sync with the previous one" actions={<Link to="/regulations/updates" className="text-[12.5px] font-medium text-accent-text hover:underline">All</Link>} />
+            <CardHeader title="Detected changes" subtitle="Differences between consecutive syncs of the regulation data" actions={<Link to="/regulations/updates" className="text-[12.5px] font-medium text-accent-text hover:underline">All</Link>} />
             {(updates.data ?? []).length === 0 ? (
               <div className="px-4 py-5 text-[12.5px] text-fg-3">No changes recorded yet. Changes to the CCL, Country Chart, Country Groups, Japanese country lists and screening lists appear here after each data update.</div>
             ) : (
