@@ -11,5 +11,5 @@ export default defineConfig({
     port: 5173,
     proxy: { "/api": { target: "http://localhost:8787", changeOrigin: false } },
   },
-  build: { outDir: path.resolve(import.meta.dirname, "dist/web"), emptyOutDir: true },
+  build: { outDir: path.resolve(import.meta.dirname, "dist/web"), emptyOutDir: true, chunkSizeWarningLimit: 1500 },
 });

@@ -36,6 +36,10 @@ Known anomalies in the EAR text that the parsers tolerate: merged cells in the C
 
 OpenSanctions maintains a hand-curated dataset of Chinese designations (`cn_sanctions`); Kanmon does not use it by default because its licence (CC BY-NC) does not cover commercial use.
 
+## Versioning the regulatory baseline
+
+Because regulation snapshots live in `data/snapshots/` under version control, a sync that picks up new text shows up as a change to those files. Committing them turns the repository history into a record of which rules were in force when — useful when an assessment has to be defended later. The screening cache (`data/cache/`) is excluded because it changes daily and is large; its date is still recorded in the manifest and on every assessment.
+
 ## Snapshot manifest
 
 `data/snapshots/manifest.json` records, for each source, the date the data reflects (`asOf`: eCFR issue date, law revision date, list publication date), when it was fetched, the parser version, and entry counts. Every assessment stores these dates, and the printed Transaction Review Record lists them.
