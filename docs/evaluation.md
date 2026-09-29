@@ -4,7 +4,7 @@ Three questions matter for a tool like this: does it read the regulations correc
 
 ```bash
 npm run evaluate   # parser coverage and the screening benchmark → docs/evaluation-results.json
-npm test           # 69 scenario and unit tests
+npm test           # 77 scenario, unit and API tests
 ```
 
 Figures are for the snapshots dated 2026-09-24 (eCFR), 2026-06-05 (輸出令), 2026-09-29 (Consolidated Screening List), 2025-09-29 (METI End User List) and 2026-08-05 (latest MOFCOM designation).
@@ -73,7 +73,7 @@ The test suite encodes scenarios whose expected result was derived by hand from 
 | Magnets with 2% China-origin rare-earth content, ship date 2026-09-29 / 2026-11-10 | No requirement / licence may be required | MOFCOM 2025 No. 61 suspended until 2026-11-10 (No. 70) |
 | Chinese subsidiary exporting to a Watch-listed Japanese customer (TDK) | Watch List flag; licence required for gallium | Dual-Use Items Regulations Art. 26; 2023 No. 23 |
 
-Parser unit tests cover scope extraction (including references to other ECCNs that must be ignored), the merged-cell anomaly in 1C350, license-exception value parsing, kanji numerals, MOFCOM annex and prose designations, and the screening normalizer.
+API tests exercise the full create → screen → disposition → review flow against a throwaway database. Parser unit tests cover scope extraction (including references to other ECCNs that must be ignored), the merged-cell anomaly in 1C350, license-exception value parsing, kanji numerals, MOFCOM annex and prose designations, and the screening normalizer.
 
 ## 4. What is not evaluated here
 
