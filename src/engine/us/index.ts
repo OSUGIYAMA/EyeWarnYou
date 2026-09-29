@@ -369,7 +369,10 @@ function assessItem(c: Case, item: Item, d: EngineData, tx: TxContext, opts: UsO
     findings.push({ id: "class.provisional", status: "flag", title: `Classification ${eccnId}${item.us.paragraph ? `.${item.us.paragraph}` : ""} is provisional`, detail: "Confirm with the manufacturer or through a BIS commodity classification (CCATS) before relying on it.", citations: [cfr("748.3")] });
 
   const reasons = new Set<string>();
+  /** A requirement from Part 744 / 746 or a party — list-based exceptions cannot overcome it. */
   let nonChart = false;
+  /** A CCL requirement stated in prose rather than a chart column (e.g. 3A090 RS) — only field-driven exceptions apply. */
+  let textualCcl = false;
   const requirementTitles: string[] = [];
   let prohibited = false;
 
@@ -388,7 +391,7 @@ function assessItem(c: Case, item: Item, d: EngineData, tx: TxContext, opts: UsO
       }
       if (ev.licenseRequired === "yes") {
         reasons.add(ev.control.reason);
-        if (ev.textual || ev.control.special) nonChart = nonChart || ev.textual;
+        if (ev.textual) textualCcl = true;
         requirementTitles.push(`${label}`);
         findings.push({
           id: `ccl.${ev.index}`,
@@ -402,7 +405,7 @@ function assessItem(c: Case, item: Item, d: EngineData, tx: TxContext, opts: UsO
         findings.push({ id: `ccl.${ev.index}`, status: "pass", title: `No license required for ${label} to ${countryName(d, dest)}`, detail: [ev.note, ev.partyDependent === "EL-FN5" && tx.entityFn.has("5") ? "A Footnote 5 Entity List party is involved — this control applies." : ""].filter(Boolean).join("\n") || undefined, citations: [cfr("738 Supp. 1", "738, Supp. No. 1 (Country Chart)")], evidence: ev.cells.length ? { kind: "chart", country: dest, cells: ev.cells } : evidence });
         if (ev.partyDependent === "EL-FN5" && tx.entityFn.has("5")) {
           reasons.add(ev.control.reason);
-          nonChart = true;
+          textualCcl = true;
           requirementTitles.push(`${label} (Footnote 5 party)`);
         }
       } else {
@@ -488,7 +491,7 @@ function assessItem(c: Case, item: Item, d: EngineData, tx: TxContext, opts: UsO
     if (tx.uvl) blockers.push("A party is on the Unverified List (§740.2(a)(17))");
     if (dest && (EMBARGO_ALL[dest] || dest === "IR" || c.destinationRegion)) blockers.push("Sanctioned destination — only the exceptions listed in Part 746 (§740.2(a)(6))");
     if (eccn && !nonChart) {
-      const le = licenseExceptionCandidates({ eccn, paragraph: item.us.paragraph, destination: dest, reasons: chartReasons, nonChartRequirement: nonChart, blockers, netValueUsd: netUsd }, d);
+      const le = licenseExceptionCandidates({ eccn, paragraph: item.us.paragraph, destination: dest, reasons: chartReasons, nonChartRequirement: false, textualCcl, blockers, netValueUsd: netUsd }, d);
       exceptions.push(...le.candidates);
       if (le.excluded.length) findings.push({ id: "le.excluded", status: "info", title: "License exceptions restricted", detail: le.excluded.map((x) => `• ${x}`).join("\n"), citations: [cfr("740.2")] });
     } else if (eccn && nonChart) {

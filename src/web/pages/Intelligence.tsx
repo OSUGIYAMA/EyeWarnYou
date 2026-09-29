@@ -2,9 +2,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, CalendarClock, ExternalLink, History } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { LandscapeView } from "../components/Landscape.tsx";
 import { Page } from "../components/AppShell.tsx";
-import { Badge, Card, CardHeader, Segmented, Skeleton } from "../components/ui/index.tsx";
+import { Badge, Card, CardHeader, Segmented, Skeleton, TabPanel, Tabs } from "../components/ui/index.tsx";
 import { api } from "../lib/api.ts";
 import { cx, daysBetween, fmtDate, type Tone } from "../lib/format.ts";
 
@@ -50,14 +51,36 @@ const KIND: Record<string, string> = {
 };
 
 export function IntelligencePage() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") ?? "timeline";
+  return (
+    <Page wide>
+      <div className="mb-4">
+        <h1 className="text-[22px] font-semibold tracking-tight">Regulatory intelligence</h1>
+      </div>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setParams(v === "timeline" ? {} : { tab: v })}
+        tabs={[
+          { value: "timeline", label: "Timeline" },
+          { value: "landscape", label: "List landscape" },
+        ]}
+      >
+        <TabPanel value="timeline" className="pt-5">
+          <TimelineView />
+        </TabPanel>
+        <TabPanel value="landscape" className="pt-5">
+          <LandscapeView />
+        </TabPanel>
+      </Tabs>
+    </Page>
+  );
+}
+
+function TimelineView() {
   const q = useQuery({ queryKey: ["timeline"], queryFn: () => api.get<{ today: string; events: Ev[]; measures: Measure[] }>("/timeline") });
   const [filter, setFilter] = useState("all");
-  if (!q.data)
-    return (
-      <Page>
-        <Skeleton className="h-64" />
-      </Page>
-    );
+  if (!q.data) return <Skeleton className="h-64" />;
   const { today, events, measures } = q.data;
   const shown = events.filter((e) => filter === "all" || e.jurisdiction === filter);
   const upcoming = shown.filter((e) => e.date >= today);
@@ -65,11 +88,10 @@ export function IntelligencePage() {
   const exposedCount = upcoming.reduce((n, e) => n + e.exposed.length, 0);
 
   return (
-    <Page wide>
+    <>
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[22px] font-semibold tracking-tight">Regulatory intelligence</h1>
-          <p className="mt-1 max-w-3xl text-[13.5px] text-fg-2">
+          <p className="max-w-3xl text-[13.5px] text-fg-2">
             Scheduled changes across the US, Japan and China — suspensions that lapse, rules that take effect, new designations — with the open cases each one would change. Text-level changes detected in the regulation data are listed under{" "}
             <Link to="/regulations/updates" className="text-accent-text hover:underline">
               Detected changes
@@ -137,7 +159,7 @@ export function IntelligencePage() {
           </Card>
         </aside>
       </div>
-    </Page>
+    </>
   );
 }
 

@@ -8,6 +8,7 @@ import path from "node:path";
 import { app as api } from "./app.ts";
 import { store } from "./store.ts";
 import { runSync } from "../ingest/sync.ts";
+import { landscape } from "./landscape.ts";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const WEB_DIR = path.resolve(import.meta.dirname, "../../dist/web");
@@ -27,6 +28,9 @@ if (!store.data.screening.entries.some((e) => e.list === "EL")) {
       .catch((e) => console.warn(`⚠ Could not download screening lists: ${(e as Error).message}. Use Settings → Data to retry.`));
   }
 }
+
+// Warm the cross-list analytics in the background.
+landscape(store.data, store.loadedAt);
 
 const root = new Hono();
 

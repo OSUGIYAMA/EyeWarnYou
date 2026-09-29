@@ -35,6 +35,7 @@ import {
 import { store } from "./store.ts";
 import { aiRoutes } from "./ai/routes.ts";
 import { seedSamples } from "./demo.ts";
+import { landscape } from "./landscape.ts";
 
 export const app = new Hono().basePath("/api");
 
@@ -220,6 +221,12 @@ app.get("/exposure", (c) => {
     (cnListCounts[e.list] ??= {})[k] = (cnListCounts[e.list]?.[k] ?? 0) + 1;
   }
   return c.json({ asOf, materials, origins, cnParties, cnListCounts, productCount: products.length, caseCount: cases.length });
+});
+
+/** Cross-jurisdiction list analytics (computed in the background after each data load). */
+app.get("/landscape", (c) => {
+  const l = landscape(store.data, store.loadedAt);
+  return l ? c.json({ status: "ready", ...l }) : c.json({ status: "computing" }, 202);
 });
 
 /** Dated regulatory events across jurisdictions, with the open cases each one touches. */

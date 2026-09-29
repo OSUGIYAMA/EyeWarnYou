@@ -177,3 +177,19 @@ describe("US — regressions", () => {
     expect(us(kase({ ...base, answers: cleanAnswers({ "us.redflag.9": "yes", "us.redflagsResolved": "yes" }) })).outcome).toBe("no_license_required");
   });
 });
+
+describe("US — prose CCL requirements", () => {
+  it("3A090.b to China: RS requirement from the Country-Group formula; NAC/ACA surfaces, LVS/GBS do not", () => {
+    const c = kase({ destination: "CN", items: [item({ unitValue: 100, us: { origin: "us_origin", eccn: "3A090", paragraph: "b" } })] });
+    const r = us(c).items[0];
+    expect(r.findings.some((f) => f.status === "block" && /RS/.test(f.title))).toBe(true);
+    const codes = r.exceptions.map((e) => e.code);
+    expect(codes).toContain("NAC/ACA");
+    expect(codes).not.toContain("LVS");
+  });
+  it("3A090.a to Germany: AI Diffusion worldwide wording not enforced → no RS requirement", () => {
+    const c = kase({ destination: "DE", items: [item({ us: { origin: "us_origin", eccn: "3A090", paragraph: "a" } })] });
+    const r = us(c).items[0];
+    expect(r.findings.some((f) => f.status === "block" && /RS/.test(f.title))).toBe(false);
+  });
+});

@@ -34,6 +34,14 @@
   --green-text: #15803d;
   --violet: #7c3aed;
   --violet-soft: #f3edfd;
+  /* Categorical chart palette (validated, fixed order) */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-other: #b5b4ae;
+  --seq-1: #2a78d6;
   --shadow-sm: 0 1px 2px rgba(16, 16, 20, 0.05);
   --shadow: 0 1px 3px rgba(16, 16, 20, 0.06), 0 1px 2px rgba(16, 16, 20, 0.04);
   --shadow-lg: 0 16px 48px -12px rgba(16, 16, 20, 0.22), 0 4px 12px rgba(16, 16, 20, 0.06);
@@ -68,6 +76,13 @@
   --green-text: #6fdc98;
   --violet: #a78bfa;
   --violet-soft: #1f1834;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-other: #5f5e59;
+  --seq-1: #3987e5;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 20px 60px -12px rgba(0, 0, 0, 0.7);

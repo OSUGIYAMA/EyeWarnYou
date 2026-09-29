@@ -11,6 +11,8 @@ interface NameRecord {
   display: string;
   tokens: string[];
   key: string;
+  /** All tokens including legal forms — used to temper single-word matches. */
+  fullKey: string;
   cjk: boolean;
 }
 
@@ -51,7 +53,7 @@ export class ScreeningIndex {
         const n = normalizeName(display);
         if (!n.tokens.length || seen.has(n.key)) continue;
         seen.add(n.key);
-        const rec: NameRecord = { entry: i, display, tokens: n.tokens, key: n.key, cjk: hasCjk(display) };
+        const rec: NameRecord = { entry: i, display, tokens: n.tokens, key: n.key, fullKey: n.all.join(" "), cjk: hasCjk(display) };
         const id = this.names.push(rec) - 1;
         for (const t of new Set(n.tokens)) {
           let p = this.postings.get(t);
@@ -122,7 +124,7 @@ export class ScreeningIndex {
       const rec = this.names[id];
       const entry = this.entries[rec.entry];
       if (lists && !lists.has(entry.list)) continue;
-      const { score, matched } = this.scoreName(q.tokens, q.key, rec);
+      const { score, matched } = this.scoreName(q.tokens, q.key, rec, q.all.join(" "));
       if (score <= 0) continue;
       let final = score;
       let countryMatch: ScreeningMatch["countryMatch"] = "unknown";
@@ -143,8 +145,13 @@ export class ScreeningIndex {
     return [...best.values()].sort((a, b) => b.score - a.score).slice(0, query.limit ?? 25);
   }
 
-  private scoreName(qTokens: string[], qKey: string, rec: NameRecord): { score: number; matched: string[] } {
-    if (qKey === rec.key) return { score: 100, matched: [...qTokens] };
+  private scoreName(qTokens: string[], qKey: string, rec: NameRecord, qFull: string): { score: number; matched: string[] } {
+    if (qKey === rec.key) {
+      // A name that reduces to one short word ("Leda Group Holdings" → "leda") matches many unrelated
+      // entities once legal forms are removed; keep it reviewable but below a near-certain score.
+      const single = qTokens.length === 1 && qTokens[0].length <= 6 && !rec.cjk;
+      return { score: single && qFull !== rec.fullKey ? 90 : 100, matched: [...qTokens] };
+    }
     const sim = (a: string, b: string) => (rec.cjk ? (a === b ? 1 : 0) : tokenSimilarity(a, b));
     let rNum = 0;
     let rDen = 0;

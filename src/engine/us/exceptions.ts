@@ -18,6 +18,8 @@ export interface ExceptionContext {
   reasons: Set<string>;
   /** A license requirement stems from Part 744 / 746 or a textual/special control. */
   nonChartRequirement: boolean;
+  /** Some requirement is stated in CCL prose (worldwide / Country-Group formulas) rather than chart columns. */
+  textualCcl?: boolean;
   /** Reasons for 740.2 ineligibility already known (UVL party, embargoed destination …). */
   blockers: string[];
   netValueUsd?: number;
@@ -57,7 +59,9 @@ export function licenseExceptionCandidates(ctx: ExceptionContext, data: EngineDa
 
   if (excluded.length) return { candidates: [], excluded };
 
-  const chartOnly = !ctx.nonChartRequirement;
+  // LVS / GBS / STA are defined against Country Chart requirements; prose requirements (e.g. 3A090 RS)
+  // are overcome only by the exceptions the ECCN names for them (NAC/ACA, HBM, ENC …).
+  const chartOnly = !ctx.nonChartRequirement && !ctx.textualCcl;
 
   // LVS — §740.3
   const lvs = le(eccn, "LVS");

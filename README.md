@@ -51,6 +51,18 @@ It also treats **time** as an input. Several consequential rules are currently s
 - Browsers for the CCL, the Country Chart, country profiles, Japan's 別表第一 and catch-all, and the full EAR / Japanese-law library; **Ask the regulations**, a Q&A that answers only from retrieved provisions and cites them.
 - A printable **Transaction Review Record** (取引審査票) with item classifications (該非判定), screening evidence, knowledge-question answers, findings with legal basis and a sign-off block.
 
+## What the lists show
+
+Because Kanmon holds the US, Japanese and Chinese lists side by side and matches names with the same engine, it can measure how far they agree (Intelligence → List landscape; name-match score ≥ 92, data as of 2026-09-29):
+
+- **57%** of the 835 entities on METI's End User List also appear on a US list (319 on OFAC's SDN List, 221 on the Entity List).
+- The reverse is far smaller: **3.2%** of Entity List entries with a Chinese or Hong Kong address, **8.8%** of Russian and **19%** of Iranian entries are on METI's list. Japan's list is built around weapons-of-mass-destruction and (since 2025) conventional-weapons end users; the Entity List also targets technology acquisition, surveillance and military modernization.
+- **None** of the 80 Japanese entities MOFCOM placed on its Control List and Watch List in 2026 appears on a US or Japanese list — China's lists are a distinct instrument, and in 2026 they turned to Japan: 80 of the 97 designations made in the first half of the year target Japanese entities.
+
+Name matching over-counts namesakes and under-counts transliteration variants, so these are indicative figures; the matched pairs can be inspected in the app.
+
+![List landscape](docs/images/landscape.png)
+
 ## Quick start
 
 Requirements: Node.js 20.19+.
