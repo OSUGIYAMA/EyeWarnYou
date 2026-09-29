@@ -1,4 +1,5 @@
 // Sample cases that exercise every regime and most rule families. Clearly labelled "[Sample]".
+// Every transaction and every party name is fictional; none describes a real company or deal.
 import type { Case, Item, Party } from "../shared/case.ts";
 import { assessCase } from "../engine/index.ts";
 import { createCase, getSettings, saveCase } from "./db.ts";
@@ -56,7 +57,7 @@ export const SAMPLES: (Partial<Case> & { title: string })[] = [
         jp: { listStatus: "listed", kou: "7の項（1）", classificationBasis: "Supplier 該非判定書 (parameter sheet 7項)" },
       }),
     ],
-    parties: [party("consignee", "Shenzhen Hengtai Electronics Trading Co., Ltd.", "CN", "Futian District, Shenzhen")],
+    parties: [party("consignee", "Example Components Trading (Shenzhen) Co., Ltd.", "CN", "Futian District, Shenzhen")],
     answers: baseAnswers({ "us.redflag.9": "unknown" }),
   },
   {
@@ -81,7 +82,7 @@ export const SAMPLES: (Partial<Case> & { title: string })[] = [
         jp: { listStatus: "listed", kou: "6の項（2）", classificationBasis: "該非判定書 — 貨物等省令第5条第2号" },
       }),
     ],
-    parties: [party("end_user", "Siam Precision Auto Parts Co., Ltd.", "TH", "Amata City, Chonburi")],
+    parties: [party("end_user", "Example Auto Parts (Thailand) Co., Ltd.", "TH", "Amata City, Chonburi")],
     answers: baseAnswers(),
   },
   {
@@ -106,12 +107,12 @@ export const SAMPLES: (Partial<Case> & { title: string })[] = [
         jp: { listStatus: "not_listed", appendix2_3: "yes", classificationBasis: "非該当 — 9の項 mass-market exclusion" },
       }),
     ],
-    parties: [party("consignee", "Almaty Tech Distribution LLP", "KZ"), party("forwarder", "Eurasia Freight Forwarding", "KZ")],
+    parties: [party("consignee", "Example Distribution LLP", "KZ"), party("forwarder", "Example Freight Forwarding LLP", "KZ")],
     answers: baseAnswers({ "us.redflag.1": "yes", "us.redflag.9": "yes", "jp.designated": "unknown" }),
-    notes: "Customer declined to name end users; forwarder listed as final delivery address.",
+    notes: "Fictional scenario. Customer declined to name end users; forwarder listed as final delivery address.",
   },
   {
-    title: "[Sample] Servo motors with Dy-NdFeB magnets to a US aerospace contractor",
+    title: "[Sample] Servo motors with Dy-NdFeB magnets to a US aerospace manufacturer",
     shipFrom: "JP",
     destination: "US",
     contractRef: "PO 4500123",
@@ -133,11 +134,11 @@ export const SAMPLES: (Partial<Case> & { title: string })[] = [
         cn: { listStatus: "unclassified", cnCode: "", materials: ["ndfeb-tbdy"], cnControlledContentPct: 3.5 },
       }),
     ],
-    parties: [party("end_user", "Lockheed Martin Aeronautics", "US", "Fort Worth, Texas")],
+    parties: [party("end_user", "Example Aerospace Systems Inc.", "US", "Texas")],
     answers: baseAnswers({ "cn.usMilitary": "unknown", "cn.euc": "no" }),
   },
   {
-    title: "[Sample] Chinese subsidiary: sintered magnets to a Watch-listed customer in Japan",
+    title: "[Sample] Chinese subsidiary: sintered magnets to a sensor maker in Japan",
     shipFrom: "CN",
     destination: "JP",
     contractRef: "CN-SZ-2026-118",
@@ -156,7 +157,7 @@ export const SAMPLES: (Partial<Case> & { title: string })[] = [
         cn: { listStatus: "listed", cnCode: "1C905", materials: ["ndfeb-tbdy", "dysprosium"] },
       }),
     ],
-    parties: [party("end_user", "TDK Corporation", "JP", "Chuo-ku, Tokyo")],
+    parties: [party("end_user", "Example Sensor Components K.K.", "JP", "Tokyo")],
     answers: baseAnswers({ "cn.catchAll": "no", "cn.jpMilitary": "no" }),
   },
 ];
@@ -165,7 +166,7 @@ export function seedSamples(): string[] {
   const ids: string[] = [];
   const s = getSettings();
   for (const sample of SAMPLES) {
-    const c = createCase(sample);
+    const c = createCase({ ...sample, notes: [sample.notes, "Fictional sample case: the transaction and all party names are invented."].filter(Boolean).join("\n\n") });
     // Screen parties the same way the UI does
     const asOf = store.data.screeningStamps.map((x) => x.asOf).sort().at(-1) ?? "";
     for (const p of c.parties) {

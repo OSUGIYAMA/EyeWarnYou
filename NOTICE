@@ -1,0 +1,86 @@
+Kanmon
+Copyright 2025-2026 Tatsuya Sugiyama
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+
+Third-party data
+================
+
+The regulation and list snapshots in data/snapshots/ are parsed from the public
+sources below and reformatted (converted to JSON, restructured and normalized).
+They are reproduced for reference only. They are not official versions, they
+may be incomplete or out of date, and the official publications of the issuing
+authorities control. Kanmon is not affiliated with, endorsed by or sponsored by
+any government agency named here. Company and other entity names appear only as
+they appear in these public lists, or in clearly fictional sample data; their
+appearance implies nothing beyond the listing itself. Trademarks belong to
+their respective owners.
+
+1. United States - Export Administration Regulations (15 CFR Parts 730-774)
+   Source: Electronic Code of Federal Regulations (eCFR), Office of the Federal
+   Register (National Archives and Records Administration) and U.S. Government
+   Publishing Office, https://www.ecfr.gov/ (eCFR Versioner API).
+   Files: data/snapshots/ear-*.json.
+   Works of the U.S. Government are not subject to copyright protection in the
+   United States (17 U.S.C. 105). The eCFR is not an official legal edition of
+   the CFR; the Code of Federal Regulations and the Federal Register control.
+
+2. United States - Consolidated Screening List
+   Source: International Trade Administration, U.S. Department of Commerce,
+   Consolidated Screening List, https://www.trade.gov/consolidated-screening-list
+   Not included in this repository; downloaded at run time into data/cache/.
+   A potential match must be verified against the official publication of the
+   list concerned (BIS, OFAC or the Department of State).
+
+3. Japan - statutes, cabinet orders and ministerial ordinances
+   (外国為替及び外国貿易法, 外国為替令, 輸出貿易管理令, 貨物等省令, おそれ省令)
+   出典：e-Gov法令検索（デジタル庁）（https://laws.e-gov.go.jp/）
+   「e-Gov法令検索」（デジタル庁）（https://laws.e-gov.go.jp/）の法令API（Version 2）により
+   取得した法令データをもとに Tatsuya Sugiyama が加工して作成
+   Files: data/snapshots/jp-library.json, jp-list-control.json, jp-countries.json,
+   jp-derived.json.
+   Laws, cabinet orders and ministerial ordinances are not subject to copyright
+   under Article 13 of the Copyright Act of Japan (著作権法第13条). Other e-Gov
+   content is provided under the Public Data License 1.0 (公共データ利用規約
+   （第1.0版）, PDL1.0), https://www.digital.go.jp/resources/open_data/public_data_license_v1.0
+   The text promulgated in the Official Gazette (官報) controls.
+
+4. Japan - METI End User List (外国ユーザーリスト)
+   出典：「外国ユーザーリスト」（経済産業省）（https://www.meti.go.jp/policy/anpo/20250929_4.xlsx）、
+   PDL1.0（https://www.digital.go.jp/resources/open_data/public_data_license_v1.0）（2026年9月29日に利用）
+   「外国ユーザーリスト」（経済産業省）（https://www.meti.go.jp/policy/anpo/20250929_4.xlsx）を
+   もとに Tatsuya Sugiyama が加工して作成（Excel から JSON への変換、懸念区分コードの正規化）
+   Files: data/snapshots/jp-end-user-list.json.
+   Terms of use: https://www.meti.go.jp/main/rules.html (PDL1.0, compatible with
+   CC BY 4.0). This processed version is not published by METI and must not be
+   presented as if it were created or verified by METI.
+
+5. China - MOFCOM designations (出口管制管控名单, 关注名单, 不可靠实体清单, 反制措施)
+   来源：中华人民共和国商务部网站（https://www.mofcom.gov.cn/ ,
+   https://aqygzj.mofcom.gov.cn/）。各公告的网址见 src/ingest/mofcom.ts 及
+   data/snapshots/cn-lists.json 中每一条目的 sourceUrl。
+   Files: data/snapshots/cn-lists.json.
+   Official announcements of state organs and their official translations are
+   excluded from copyright protection under Article 5 of the Copyright Law of the
+   People's Republic of China. Entity names were extracted and restructured by
+   Kanmon; English names are as printed in the announcements. The
+   Chinese-language announcements published by MOFCOM control.
+
+Country names in data/snapshots/countries.json are derived from the
+i18n-iso-countries package (MIT License, Copyright (c) 2016 widdix GmbH).
+
+
+No legal advice / no warranty
+=============================
+
+Kanmon is a decision-support tool. It does not provide legal advice, does not
+create a lawyer-client relationship, and is not a substitute for the official
+regulations, for guidance from the licensing authorities (BIS, METI, MOFCOM)
+or for advice from qualified counsel. Its determinations, screening results and
+AI-generated drafts may be incomplete, out of date or wrong, and export-control
+rules and lists change frequently. Users remain solely responsible for their
+own compliance. The software and data are provided on an "AS IS" basis, without
+warranties or conditions of any kind, and without liability of the author, as
+set out in Sections 7 (Disclaimer of Warranty) and 8 (Limitation of Liability)
+of the Apache License, Version 2.0.

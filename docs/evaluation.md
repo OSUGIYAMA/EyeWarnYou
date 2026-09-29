@@ -71,7 +71,7 @@ The test suite encodes scenarios whose expected result was derived by hand from 
 | Listed goods to Russia | Export approval required | 輸出令第2条, 別表第二の三 |
 | China-origin gallium in a transfer for Japanese military use | Prohibited | MOFCOM 2026 No. 1 |
 | Magnets with 2% China-origin rare-earth content, ship date 2026-09-29 / 2026-11-10 | No requirement / licence may be required | MOFCOM 2025 No. 61 suspended until 2026-11-10 (No. 70) |
-| Chinese subsidiary exporting to a Watch-listed Japanese customer (TDK) | Watch List flag; licence required for gallium | Dual-Use Items Regulations Art. 26; 2023 No. 23 |
+| Export from China to a party on MOFCOM's Watch List (TDK Corporation, listed by 2026 No. 12; hypothetical transaction) | Watch List flag; licence required for gallium | Dual-Use Items Regulations Art. 26; 2023 No. 23 |
 
 API tests exercise the full create → screen → disposition → review flow against a throwaway database. Parser unit tests cover scope extraction (including references to other ECCNs that must be ignored), the merged-cell anomaly in 1C350, license-exception value parsing, kanji numerals, MOFCOM annex and prose designations, and the screening normalizer.
 
