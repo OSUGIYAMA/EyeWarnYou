@@ -1,275 +1,152 @@
-# Economic Security Compliance Advisor
+# Kanmon
 
-An AI-powered system that analyzes export contracts and assists with compliance assessments under Japan's Foreign Exchange and Foreign Trade Act (FEFTA / 外為法) and the U.S. Export Administration Regulations (EAR).
+**An economic-security workbench for export controls, restricted-party screening and supply-chain exposure — built for companies that trade across the US–Japan–China triangle.**
 
-## 🎯 Features
+Kanmon (関門, *checkpoint*) assesses a transaction under every regime that reaches it — Japan's Foreign Exchange and Foreign Trade Act, the US Export Administration Regulations and China's Export Control Law — and shows, for each one, *why* it attaches, *what* it requires, and *which provision* says so. The regulation text is ingested from primary sources and versioned; the determination is computed by a deterministic rules engine; AI (Claude) drafts classifications and reads contracts, but never decides.
 
-- **Automated Contract Analysis**: Extracts item descriptions, destination countries, and end-user information from PDF contracts
-- **FEFTA Assessment Flow**: Automatically evaluates List Control and Catch-All regulations under Japanese law
-- **U.S. EAR Assessment Flow**: Verifies ECCN classifications and Country Chart requirements
-- **ECCN Database**: Detailed dataset of 1,500+ ECCN entries in JSON format
-- **Advanced Search**: Lookup by keyword or ECCN number
-- **Risk Evaluation**: Generates comprehensive risk ratings and recommended actions
-- **Compliance Chat**: Interactive Q&A on export control matters
-- **Data Management**: Manage regulatory lists in CSV / JSON formats
-
-## 🚀 Setup
-
-### 1. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Configure environment variables
-
-Set your OpenAI API key in the `.env` file:
-OPENAI_API_KEY=your_api_key_here
-
-### 3. Launch the application
-
-```bash
-streamlit run app.py
-```
-
-Your browser will automatically open `http://localhost:8501`.
-
-## 📖 Usage
-
-### Contract Analysis
-
-1. Open the **Contract Analysis** tab
-2. Upload an export contract PDF, or enter the relevant information manually
-3. Click **Start Analysis**
-4. Review the AI-generated assessment
-5. Download the results as needed
-
-### Compliance Chat
-
-1. Open the **Chat Consultation** tab
-2. Ask any question related to export controls
-3. The system responds based on FEFTA and EAR provisions
-
-### Data Management
-
-1. Open the **Data Management** tab
-2. Browse and search the ECCN database (1,500+ entries)
-   - Category-level statistics
-   - Keyword search (item name, description)
-   - Direct ECCN number lookup
-3. Review Country Groups and Entity Lists
-4. Upload custom regulatory lists via CSV
-
-## ⚠️ Important Disclaimers
-
-- **This system provides reference information only and does not constitute legal advice.**
-- All final compliance determinations must be made in consultation with qualified professionals and the relevant authorities.
-- Japan METI Security Export Control Policy Division: +81-3-3501-2801
-- CISTEC (Center for Information on Security Trade Control): https://www.cistec.or.jp
-
-## 📋 Assessment Workflows
-
-### Japan FEFTA (外為法) — Steps 1–5
-1. Does the transaction constitute an export of goods or transfer of technology?
-2. Does the item fall under List Control? (該非判定 / classification determination)
-3. Is a license exception applicable?
-4. Does a comprehensive (bulk) license apply?
-5. Are there Catch-All concerns?
-
-### U.S. EAR — Steps 1–5
-1. Is the transaction a re-export of an EAR-controlled item?
-2. Does the item have an ECCN classification?
-3. What does the Country Chart require?
-4. Are license exceptions available?
-5. Are there embargoed-country, end-use, or end-user concerns?
-
-## 🛠️ Tech Stack
-
-- **Frontend**: Streamlit
-- **LLM**: OpenAI GPT-4
-- **PDF Processing**: PyPDF2, pdfplumber
-- **Data Processing**: Pandas
-- **Environment Management**: python-dotenv
-
-## 📁 Project Structure
-
-```
-Economic Security Professor/
-├── app.py                  # Main application
-├── knowledge_base.py       # Knowledge base (FEFTA and U.S. EAR)
-├── utils.py                # Utility functions
-├── requirements.txt        # Python dependencies
-├── .env                    # Environment variables (API keys)
-├── eccnnumber.json         # ECCN database (1,500+ entries) ★NEW
-├── README.md               # This file
-├── USAGE_GUIDE.md          # Detailed usage guide
-├── QUICK_START.md          # Quick start guide
-└── sample_data/            # Sample data
-    ├── eccn_list.csv           # ECCN list (basic)
-    ├── country_groups.csv      # Country Groups
-    └── entity_list_sample.csv  # Entity List (sample)
-```
-
-## 🔮 Roadmap
-
-- [ ] Integration with more granular regulatory databases
-- [ ] Multi-language support
-- [ ] Expanded export formats (PDF, Excel, etc.)
-- [ ] Persistence and search of analysis history
-- [ ] User authentication
-- [ ] Coverage of China's export control regime
-
-## 📞 Support
-
-For questions or compliance issues, please consult qualified export control professionals.
-
-## 📜 License
-
-This system was developed for educational and research purposes.
-Please verify appropriate licensing for any commercial use.
+![Case workspace — live determination across three jurisdictions](docs/images/case.png)
 
 ---
 
-**Disclaimer**: All information provided by this system is for reference only. For actual export compliance work, always consult qualified professionals and the relevant regulatory authorities.
+## Why this exists
 
+A single shipment from Japan can be governed by three sovereigns at once:
 
+| How a regime attaches | Example | What Kanmon evaluates |
+|---|---|---|
+| **Where the goods ship from** | Goods leave Japan → FEFTA applies | List control (輸出令別表第一), the 2025 catch-all tiers (16の項), the small-value exception, export approvals for Russia/Belarus and diversion countries |
+| **What the goods are made of** | A Japanese product with a US-origin chip; a motor with Chinese dysprosium magnets | US de minimis and the Foreign Direct Product rules; China's commodity controls, end-user commitments and extraterritorial measures (2024 No. 46, 2026 No. 1, the suspended 0.1% rule) |
+| **Who is on the other side** | A consignee on the Entity List, METI's End User List or MOFCOM's Control List | Part 744 end-user controls, OFAC exposure, the Japanese WMD/conventional end-user requirements, Chinese list effects |
 
-↓ in Japanese below!
----
-# 安全保障貿易管理 判断支援システム
+Compliance teams usually hold this picture in their heads, across spreadsheets and PDFs, and the reasoning rarely survives into the record. Kanmon makes the jurisdictional nexus explicit, evaluates each regime from its own text, and keeps an auditable record of what was decided, by whom, and against which version of the rules.
 
-輸出契約書を自動分析し、外為法と米国EARの適用判断を支援するAIシステム
+It also treats **time** as an input. Several consequential rules are currently suspended with known end dates — the US Affiliates (50%) Rule re-applies on 2026-11-10 unless extended; China's October 2025 rare-earth package, including the extraterritorial 0.1% rule, is suspended until 2026-11-10 in law and until 2027-01-10 by political agreement. Kanmon evaluates each case on its ship date and tells you which open transactions a scheduled change would affect.
 
-## 🎯 機能
+## Design principles
 
-- **契約書自動分析**: PDFから品目、仕向地、需要者情報を抽出
-- **外為法判断フロー**: リスト規制、キャッチオール規制の自動判定
-- **米国EAR判断フロー**: ECCN番号、カントリーチャートの確認
-- **ECCN番号データベース**: 1500+項目の詳細なECCN番号データ（JSON形式）
-- **高度な検索機能**: キーワード・ECCN番号での検索
-- **リスク評価**: 総合的なリスクレベルと推奨アクションを提示
-- **チャット相談**: 輸出管理に関する質問に回答
-- **データ管理**: CSV/JSON形式で規制リストを管理
+1. **The regulation text is the source of truth.** eCFR (15 CFR 730–774), e-Gov (輸出令, 貨物等省令, おそれ省令, 外為法), the trade.gov Consolidated Screening List, METI's End User List and MOFCOM's designation notices are fetched, parsed and stored as dated snapshots. Lists the engine needs — the UN arms-embargo countries, Russia HTS codes, MEU items, red flags, Japan's HS-designated catch-all goods — are *derived from the text*, not typed in.
+2. **Deterministic where the law is deterministic; human judgment where it is not.** Country Chart lookups, de minimis arithmetic, catch-all tiering and list effects are computed. Classification, end-use knowledge and screening dispositions stay with a named reviewer. AI output is labelled provisional and verified against the dataset.
+3. **Every conclusion cites its provision**, one click from the text it rests on, and every assessment records the data versions it used.
+4. **"Incomplete" is an outcome.** Unanswered questions, unresolved red flags, pending screening matches and regulation text the engine does not recognise are surfaced for review — never silently guessed.
+5. **Local-first.** Cases, documents and API keys stay on the machine running Kanmon. The only outbound traffic is to the public data sources and, if enabled, the Anthropic API.
 
-## 🚀 セットアップ
+## How it works in practice
 
-### 1. 依存関係のインストール
+1. **Start from the question.** The home screen offers three doors — *check a shipment*, *screen a company*, *classify a product* — and below them the open cases, each with the one thing it needs next.
+2. **Three answers open a case.** What is shipped, where it goes, who will use it. Kanmon screens the parties immediately and computes a first determination.
+3. **The answer comes first.** A case opens on the verdict (e.g. *License required — under China's Export Control Law, MOFCOM consent may be required*), the outcome under each law, and a single button for the next step: screen the parties, review a possible list match, answer the two questions only the exporter can answer, submit for review.
+4. **Reasons on demand.** Beside the inputs, each law's reasoning — why it attaches, every finding with its citation, license-exception conditions to confirm, what to do — updates as you type.
+5. **A record that survives.** The reviewer approves or rejects with reasons; the Transaction Review Record prints the determination together with the data versions it relied on.
+
+The interface design principles are in [src/web/DESIGN.md](src/web/DESIGN.md).
+
+| | |
+|---|---|
+| ![Home — start from the question](docs/images/home.png) | ![Screening across US, Japanese and Chinese lists](docs/images/screening.png) |
+| **Home.** Three doors, then the open cases with the one thing each needs next. | **Screening.** One search across 17 lists; scores explained; every search logged. |
+| ![What's changing — dated regulatory events and the cases they touch](docs/images/intelligence.png) | ![Supply-chain exposure to Chinese controlled materials](docs/images/exposure.png) |
+| **What's changing.** Suspensions that lapse and rules that take effect, with the open cases each one touches. | **Supply-chain exposure.** Which transactions depend on China-controlled materials, today and if a suspension ends. |
+
+## What it does
+
+**Trade controls**
+- **Case workspace** — transaction, items, parties and knowledge questions on the left; a live determination on the right that recomputes on every edit. Review workflow (submit / approve / reject) records the outcome and data versions with each decision.
+- **United States (EAR)** — subject-to-the-EAR analysis (US origin, de minimis per §734.4 including the zero-threshold cases, a Foreign Direct Product questionnaire per §734.9 with Japan's partner-country exclusions), CCL × Commerce Country Chart at paragraph level, Part 746 embargoes and Russia/Belarus HTS lists, Part 744 end-user and end-use controls, and license-exception screening with the §740.2 restrictions.
+- **Japan (FEFTA)** — list control with 項番, the catch-all as revised on 2025-10-09 (16の項（1）HS-designated goods vs （2）; WMD and conventional use / end-user requirements by destination tier; METI notifications for Group A; 明らかガイドライン ⑲), the small-value exception with the 別表第三の三 threshold, and export approvals (Russia/Belarus, 別表第二の四 diversion countries, occupied regions of Ukraine, North Korea).
+- **China (ECL)** — ship-from licensing for Chinese subsidiaries, China-origin controlled materials (gallium, germanium, graphite, antimony, rare earths and magnets…), end-user commitments, the extraterritorial measures against Japanese and US military end use, and the effects of MOFCOM's Control List, Watch List, Unreliable Entity List and countermeasures.
+- **Classification assistant** — retrieves candidate CCL entries and 貨物等省令 provisions, then has Claude compare each control parameter with the product's specifications, citing the paragraph for every threshold; ECCN and 項番 references are checked against the dataset.
+
+**Parties & supply chain**
+- **Restricted-party screening** — 27,000+ entries across 17 lists (BIS Entity List, MEU, UVL, Denied Persons; OFAC SDN and non-SDN lists; State Department lists; METI End User List; MOFCOM Control List, Watch List, UEL and countermeasures), with dispositions stored on the case, batch screening and a history log.
+- **Supply-chain exposure** — which products and open transactions depend on China-origin controlled materials, and how that changes if suspended measures lapse.
+
+**Intelligence**
+- **Timeline** of dated regulatory events across jurisdictions, with the open cases each would affect.
+- **Changes** (Regulations → Changes) — each data sync is diffed against the previous snapshot (Country Chart cells, Country Groups, ECCN requirements, Japanese country lists, list additions/removals).
+
+**Reference & records**
+- Browsers for the CCL, the Country Chart, country profiles, Japan's 別表第一 and catch-all, and the full EAR / Japanese-law library; **Ask the regulations**, a Q&A that answers only from retrieved provisions and cites them.
+- A printable **Transaction Review Record** (取引審査票) with item classifications (該非判定), screening evidence, knowledge-question answers, findings with legal basis and a sign-off block.
+
+## What the lists show
+
+Because Kanmon holds the US, Japanese and Chinese lists side by side and matches names with the same engine, it can measure how far they agree (What’s changing → List landscape; name-match score ≥ 92, data as of 2026-09-29):
+
+- **57%** of the 835 entities on METI's End User List also appear on a US list (319 on OFAC's SDN List, 221 on the Entity List).
+- The reverse is far smaller: **3.2%** of Entity List entries with a Chinese or Hong Kong address, **8.8%** of Russian and **19%** of Iranian entries are on METI's list. Japan's list is built around weapons-of-mass-destruction and (since 2025) conventional-weapons end users; the Entity List also targets technology acquisition, surveillance and military modernization.
+- **None** of the 80 Japanese entities MOFCOM placed on its Control List and Watch List in 2026 appears on a US or Japanese list — China's lists are a distinct instrument, and in 2026 they turned to Japan: 80 of the 97 designations made in the first half of the year target Japanese entities.
+
+Name matching over-counts namesakes and under-counts transliteration variants, so these are indicative figures; the matched pairs can be inspected in the app.
+
+![List landscape](docs/images/landscape.png)
+
+## Quick start
+
+Requirements: Node.js 20.19+.
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/OSUGIYAMA/export-control-ai-assistant.git kanmon
+cd kanmon
+npm install
+npm start            # builds the web app and serves it at http://localhost:8787
 ```
 
-### 2. 環境変数の設定
-
-`.env`ファイルにOpenAI APIキーを設定してください：
-
-```
-OPENAI_API_KEY=your_api_key_here
-```
-
-### 3. アプリケーションの起動
+The regulatory snapshots are bundled, so the engine works offline immediately. On first start the US Consolidated Screening List (~30 MB) is downloaded in the background. Optional:
 
 ```bash
-streamlit run app.py
+npm run demo         # add five sample cases that exercise the US, Japanese and Chinese modules
+npm run sync         # refresh every source (or Settings → Data in the app)
+npm run evaluate     # reproduce the evaluation in docs/evaluation.md
+npm test             # scenario tests for the rules engine
+npm run dev          # development mode (API on :8787, Vite on :5173)
 ```
 
-ブラウザで `http://localhost:8501` が自動的に開きます。
+AI features need an Anthropic API key — add it in **Settings → AI** (stored in the local database) or set `ANTHROPIC_API_KEY`. Everything else works without one. See `.env.example` for deployment options (port, bind address, basic-auth password).
 
-## 📖 使い方
+## Documentation
 
-### 契約書分析
+- [Methodology](docs/methodology.md) — how each regime is evaluated, the screening matcher, the AI design, and known limitations.
+- [Data sources](docs/data-sources.md) — every source, how it is parsed and validated, and the anomalies the parsers handle.
+- [Evaluation](docs/evaluation.md) — parser coverage, the screening benchmark, and the scenario test suite.
 
-1. 「契約書分析」タブを選択
-2. 輸出契約書PDFをアップロード、または手動で情報を入力
-3. 「分析開始」ボタンをクリック
-4. AI分析結果を確認
-5. 必要に応じて結果をダウンロード
-
-### チャット相談
-
-1. 「チャット相談」タブを選択
-2. 輸出管理に関する質問を入力
-3. AIが外為法やEARに基づいて回答
-
-### データ管理
-
-1. 「データ管理」タブを選択
-2. ECCN番号データベース（1500+項目）を検索・閲覧
-   - カテゴリー別統計表示
-   - キーワード検索（品目名、説明文）
-   - ECCN番号での直接検索
-3. カントリーグループ、エンティティリストの確認
-4. カスタム規制リストのCSVアップロード
-
-## ⚠️ 重要な注意事項
-
-- **本システムは参考情報を提供するものであり、法的助言ではありません**
-- 最終的な判断は必ず専門家や関係当局にご相談ください
-- 経済産業省安全保障貿易審査課：03-3501-2801
-- CISTEC（安全保障貿易情報センター）：https://www.cistec.or.jp
-
-## 📋 判断フロー
-
-### 外為法（P.6-16）
-1. 貨物の輸出 or 技術の提供に該当するか
-2. リスト規制に該当するか（該非判定）
-3. 許可例外が適用できるか
-4. 包括許可が適用できるか
-5. キャッチオール規制の懸念があるか
-
-### 米国EAR（P.17-21）
-1. EAR対象品目の再輸出に該当するか
-2. ECCN番号の有無
-3. カントリーチャートの確認
-4. 許可例外の適用
-5. 禁輸国・エンドユース・エンドユーザー規制
-
-## 🛠️ 技術スタック
-
-- **フロントエンド**: Streamlit
-- **LLM**: OpenAI GPT-4
-- **PDF処理**: PyPDF2, pdfplumber
-- **データ処理**: Pandas
-- **環境変数管理**: python-dotenv
-
-## 📁 プロジェクト構成
+## Architecture
 
 ```
-Economic Security Professor/
-├── app.py                          # メインアプリケーション
-├── knowledge_base.py               # ナレッジベース（外為法・米国EAR）
-├── utils.py                        # ユーティリティ関数
-├── requirements.txt                # Python依存関係
-├── .env                           # 環境変数（API keys）
-├── eccnnumber.json                # ECCN番号データベース（1500+項目）★NEW
-├── README.md                      # このファイル
-├── USAGE_GUIDE.md                 # 詳細使用ガイド
-├── QUICK_START.md                 # クイックスタート
-└── sample_data/                   # サンプルデータ
-    ├── eccn_list.csv             # ECCN番号リスト（基本）
-    ├── country_groups.csv        # カントリーグループ
-    └── entity_list_sample.csv    # エンティティリスト（サンプル）
+ Primary sources                Ingest (src/ingest)                 Snapshots (data/)
+ ─────────────────              ───────────────────                 ─────────────────
+ eCFR 15 CFR 730–774   ──►  parsers ─► derived lists ─► diff  ──►  versioned JSON  ─┐
+ e-Gov 法令API          ──►  (CCL, Country Chart, Groups,                           │
+ trade.gov CSL          ──►   輸出令 別表, 貨物等省令, …)                              │
+ METI End User List     ──►                                                          │
+ MOFCOM notices         ──►                                                          ▼
+                                                           Rules engine (src/engine)
+                                                           ├─ jp/  FEFTA
+                                                           ├─ us/  EAR (+ dated policy status)
+                                                           ├─ cn/  ECL (+ dated measures)
+                                                           ├─ screening/
+                                                           └─ timeline
+                                                                   │
+            Claude (retrieval-grounded drafts) ◄── API (Hono, SQLite) ──► Web app (React)
 ```
 
-## 🔮 今後の拡張予定
+TypeScript end to end: Hono and better-sqlite3 on the server, React, TanStack Query, Radix and Tailwind in the browser, Vitest for tests, and the official Anthropic SDK for Claude.
 
-- [ ] より詳細な規制データベースの統合
-- [ ] 多言語対応
-- [ ] エクスポート形式の拡充（PDF、Excel等）
-- [ ] 過去の分析履歴の保存・検索
-- [ ] ユーザー認証機能
-- [ ] 中国の輸出管理規制への対応
+## Status and limits
 
-## 📞 サポート
+Kanmon is decision support, not legal advice; the exporter remains responsible for compliance. Its coverage is deliberate and documented: it does not evaluate ITAR items, EU/UK/Korean/Taiwanese controls (beyond timeline events), deemed exports and technology transfers in depth, or ownership (50%) structures, which are not visible in public lists. Chinese list data comes from MOFCOM's announcement pages because China publishes no machine-readable list. See [Methodology § Limitations](docs/methodology.md#limitations).
 
-質問や問題がある場合は、輸出管理の専門家にご相談ください。
+## Roadmap
 
-## 📜 ライセンス
+- **Investment and technology security** — Japan's inbound-investment prior notification, the US outbound investment program, deemed exports (みなし輸出 特定類型) and research-security checks.
+- **More jurisdictions** — EU dual-use (Regulation 2021/821) and Russia sanctions (Art. 12g), UK, South Korea, Taiwan's SHTC Entity List.
+- **Ownership graph** — corporate-ownership data to apply the 50% rules.
+- **Bill of materials** — component-level origin and US-content roll-ups for de minimis and exposure analysis.
 
-本システムは教育・研究目的で作成されています。
-商用利用の際は適切なライセンス確認を行ってください。
+## License and disclaimer
 
----
+Kanmon is released under the [Apache License 2.0](LICENSE). The regulation and list snapshots in `data/snapshots/` are derived from public government sources; their provenance, attribution statements and terms are listed in [NOTICE](NOTICE). Official publications of the issuing authorities control.
 
-**免責事項**: 本システムで提供される情報は参考情報です。実際の輸出管理業務においては、必ず専門家や関係当局に確認してください。
+Kanmon is a decision-support tool, not legal advice, and it does not create a lawyer–client relationship. Its determinations, screening results and AI-generated drafts can be incomplete, out of date or wrong; export-control rules and lists change often. Users remain responsible for their own compliance and should confirm conclusions against the official texts and, where appropriate, with the licensing authorities or qualified counsel. The software is provided "as is", without warranty or liability (Apache License 2.0, sections 7 and 8).
+
+The sample cases (`npm run demo`) are fictional; every party name in them is invented. Real entity names appear in the app only as they appear on the public lists. Kanmon is an independent project, not affiliated with or endorsed by any government agency or company named in it.
 

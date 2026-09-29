@@ -1,49 +1,11 @@
-# Environment variables
-.env
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-build/
-develop-eggs/
+node_modules/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
+.env
+.env.*
+!.env.example
+# runtime state (cases, settings, API keys) — never commit
 var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
+# large/volatile downloads
+data/cache/
+*.log
 .DS_Store
-Thumbs.db
-
-# Uploaded files
-uploads/
-temp/
-
-# CSV data (if sensitive)
-# *.csv
-
